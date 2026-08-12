@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { EVENT } from '@/config/event';
+import { SITE_URL } from '@/config/site-url';
 import { fontVariables } from '@/lib/fonts';
 import './globals.css';
 
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
   },
   description:
     'A five-week live country music competition for emerging and unsigned Ontario artists. Five shows, January 9 to February 6, 2027.',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     type: 'website',
     locale: 'en_CA',

@@ -5,6 +5,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink, twoFactor } from 'better-auth/plugins';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
+import { SITE_URL } from '@/config/site-url';
 import { canonicalizeEmail } from '@/lib/email-normalize';
 import { hashIp } from '@/lib/crypto';
 import type { Role } from './roles';
@@ -71,7 +72,14 @@ export const auth = betterAuth({
   }),
 
   secret: requireEnv('BETTER_AUTH_SECRET'),
-  baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL,
+
+  /**
+   * Magic links are built from this. If it is wrong or missing, every sign-in
+   * email points somewhere that does not exist, and the failure is silent:
+   * the email sends, the link is just broken. SITE_URL throws in production
+   * when unset rather than defaulting to localhost.
+   */
+  baseURL: process.env.BETTER_AUTH_URL?.replace(/\/+$/, '') ?? SITE_URL,
 
   // No password auth anywhere. Magic link only, which also satisfies WCAG 2.2
   // 3.3.8 Accessible Authentication without a cognitive-test CAPTCHA.

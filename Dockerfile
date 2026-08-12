@@ -31,6 +31,24 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
+# NEXT_PUBLIC_* is inlined into the bundle at BUILD time, so these must be
+# present here, not merely at runtime. Coolify supplies them by marking the
+# variable as a "Build Variable"; it passes them as build args automatically.
+#
+# ONLY non-secret values belong here. A build arg is readable in the image
+# history by anyone who can pull the image, so API secrets stay runtime-only.
+ARG NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
+# Not NEXT_PUBLIC_, but next.config.ts reads it at build time to scope the
+# next/image remotePattern to this Cloudinary account. The cloud name is public
+# (it appears in every delivery URL); the API secret is not and is never here.
+ARG CLOUDINARY_CLOUD_NAME
+ENV CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
+
 RUN npm run build
 
 # ---------------------------------------------------------------------------
