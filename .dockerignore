@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+npm-debug.log*
+README.md
+docs
+e2e
+*.docx
+*.svg
+.DS_Store
+coverage
+.vscode
+.idea

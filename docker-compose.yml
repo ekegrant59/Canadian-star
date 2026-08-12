@@ -1,0 +1,38 @@
+# Local development parity with the Coolify services.
+# Anything that works here must work deployed without code changes.
+#
+# Postgres major version is pinned to match production. A version mismatch
+# between local and prod turns a pg_dump restore into an incident.
+
+services:
+  postgres:
+    image: postgres:17.7-alpine
+    container_name: canadian_star_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: canadian_star
+      POSTGRES_PASSWORD: local_dev_password
+      POSTGRES_DB: canadian_star
+      # Deterministic collation so ORDER BY matches production.
+      LANG: C.UTF-8
+    ports:
+      # 5433 on the host to avoid colliding with a native Postgres install,
+      # which is common on developer machines and silently shadows the
+      # container's bind. Loopback only: in Coolify, Postgres binds to the
+      # internal network and publishes NO public port at all.
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U canadian_star -d canadian_star']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+# Media storage is Cloudinary, which has no local container. Development uses
+# the same Cloudinary account as production unless a second free account is
+# provisioned for it; either way uploads go to the real service, so there is
+# nothing to run here.
+
+volumes:
+  postgres_data:
