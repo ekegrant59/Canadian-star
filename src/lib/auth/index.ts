@@ -90,6 +90,10 @@ export const auth = betterAuth({
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
     cookieCache: { enabled: false },
+    // Better Auth calls this field `ipAddress`; our database stores only its
+    // peppered hash in `sessions.ip_hash`. The mapping keeps the adapter schema
+    // correct without retaining a raw IP address.
+    fields: { ipAddress: 'ipHash' },
   },
 
   advanced: {
@@ -114,9 +118,10 @@ export const auth = betterAuth({
 
   plugins: [
     magicLink({
-      // 15 minute expiry, single use, invalidated on use. Better Auth stores
-      // the token hashed.
+      // 15 minute expiry, hashed at rest, consumed atomically on first use.
+      // Better Auth defaults to plaintext, so this must remain explicit.
       expiresIn: 60 * 15,
+      storeToken: 'hashed',
       disableSignUp: false,
       async sendMagicLink({ email, url }) {
         // Phase 3 wires Resend. Until then, log in development only so a
@@ -164,8 +169,9 @@ export const auth = betterAuth({
           return {
             data: {
               ...session,
-              ipHash: rawIp ? hashIp(rawIp) : null,
-              ipAddress: undefined,
+              // `session.fields.ipAddress = 'ipHash'` maps this logical field
+              // to the schema's `ipHash` property before the Drizzle insert.
+              ipAddress: rawIp ? hashIp(rawIp) : null,
             },
           };
         },

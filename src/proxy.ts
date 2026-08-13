@@ -15,23 +15,39 @@ import { NextResponse, type NextRequest } from 'next/server';
  * from inbound requests. Defence in depth, independent of the Next version.
  */
 
-/** Generates a per-request nonce for the CSP. */
-function generateNonce(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return btoa(String.fromCharCode(...bytes));
+/**
+ * Whether this request actually arrived over TLS.
+ *
+ * NOT the same question as "is this production". A production deploy that has
+ * not had TLS configured yet is served over plain http, and treating it as
+ * https there breaks the site completely: `upgrade-insecure-requests` rewrites
+ * every stylesheet and script request to https://, the connection is refused,
+ * and the browser renders unstyled HTML with no JavaScript. curl does not
+ * implement the directive, so the assets look fine when fetched directly,
+ * which makes this genuinely confusing to diagnose.
+ *
+ * Behind Coolify's proxy the app itself listens on plain http, so the scheme
+ * has to come from the forwarded header the proxy sets. Trusting that header
+ * is only safe because the proxy sets it; it is never trusted for
+ * authorization, only to decide whether to emit TLS-only headers.
+ */
+function isSecureRequest(request: NextRequest): boolean {
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  if (forwardedProto) {
+    // May be a comma-separated chain: take the first hop.
+    const firstHop = forwardedProto.split(',')[0]?.trim();
+    return firstHop === 'https';
+  }
+  return request.nextUrl.protocol === 'https:';
 }
 
-function buildCsp(nonce: string, isDev: boolean): string {
+function buildCsp(isDev: boolean, isSecure: boolean): string {
   const directives = [
     `default-src 'self'`,
 
-    // Nonce-based script-src. No 'unsafe-inline'.
-    // 'strict-dynamic' lets Next's bootstrap load its own chunks without
-    // enumerating every hash. Dev needs eval for React Refresh.
-    isDev
-      ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`
-      : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // Next's static App Router output includes small inline bootstrap scripts.
+    // Allow those plus same-origin chunks. Dev also needs eval for refresh.
+    isDev ? `script-src 'self' 'unsafe-inline' 'unsafe-eval'` : `script-src 'self' 'unsafe-inline'`,
 
     // Tailwind injects styles at runtime; style-src-elem covers the tags it
     // creates. Revisit if a stricter policy proves workable.
@@ -58,7 +74,10 @@ function buildCsp(nonce: string, isDev: boolean): string {
     `worker-src 'self' blob:`,
   ];
 
-  if (!isDev) {
+  // Only meaningful when the site is genuinely reachable over TLS. Emitting it
+  // on a plain-http deployment upgrades every asset request to a scheme the
+  // server does not answer on, which serves unstyled HTML with no JavaScript.
+  if (!isDev && isSecure) {
     directives.push('upgrade-insecure-requests');
   }
 
@@ -67,12 +86,10 @@ function buildCsp(nonce: string, isDev: boolean): string {
 
 export function proxy(request: NextRequest) {
   const isDev = process.env.NODE_ENV !== 'production';
-  const nonce = generateNonce();
+  const isSecure = isSecureRequest(request);
+  const csp = buildCsp(isDev, isSecure);
 
-  // Make the nonce available to the render so Next can attach it to its own
-  // script tags.
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-nonce', nonce);
 
   /**
    * Strip the CVE-2025-29927 header at the application edge as well as the
@@ -86,7 +103,7 @@ export function proxy(request: NextRequest) {
   });
 
   // ---- Security headers -------------------------------------------------
-  response.headers.set('Content-Security-Policy', buildCsp(nonce, isDev));
+  response.headers.set('Content-Security-Policy', csp);
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -97,8 +114,17 @@ export function proxy(request: NextRequest) {
   response.headers.set('X-DNS-Prefetch-Control', 'off');
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 
-  // HSTS only over TLS. Setting it in local dev would pin http://localhost.
-  if (!isDev) {
+  /**
+   * HSTS only on a request that actually arrived over TLS.
+   *
+   * Sending it over plain http is worse than useless: a browser that receives
+   * it will refuse http for this host for two years, so a deployment without
+   * TLS becomes unreachable in that browser until the user clears the HSTS
+   * entry manually. Per RFC 6797 a conforming browser ignores the header on a
+   * non-secure transport, but not every client does, and the cost of being
+   * wrong is a site nobody can load.
+   */
+  if (!isDev && isSecure) {
     response.headers.set(
       'Strict-Transport-Security',
       'max-age=63072000; includeSubDomains; preload',
