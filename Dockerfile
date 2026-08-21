@@ -87,11 +87,18 @@ RUN chmod +x ./scripts/entrypoint.sh
 # node_modules and `node scripts/migrate-prod.mjs` fails with ERR_MODULE_NOT_FOUND.
 # Install the two packages the migration runner needs into a separate directory
 # that does not overwrite the traced .next/standalone/node_modules.
-COPY --chown=nextjs:nodejs package.json package-lock.json ./migrate-deps/
-RUN cd migrate-deps \
-  && npm install --no-package-lock --no-audit --no-fund --omit=dev \
-     drizzle-orm@$(node -p "require('./package.json').dependencies['drizzle-orm']") \
-     pg@$(node -p "require('./package.json').dependencies['pg']") \
+# Do not reuse the application package-lock here. It contains the complete
+# build graph and npm can fail while pruning it for this tiny runtime tree.
+# Keep the versions sourced from the application manifest while giving npm a
+# clean manifest containing only the migration runner's direct dependencies.
+COPY --chown=nextjs:nodejs package.json ./app-package.json
+RUN mkdir -p migrate-deps \
+  && cd migrate-deps \
+  && npm init -y >/dev/null \
+  && npm install --package-lock=false --no-audit --no-fund --omit=dev \
+     drizzle-orm@$(node -p "require('../app-package.json').dependencies['drizzle-orm']") \
+     pg@$(node -p "require('../app-package.json').dependencies['pg']") \
+  && rm ../app-package.json \
   && chown -R nextjs:nodejs /app/migrate-deps
 
 # ISR/revalidation writes here. Mount a persistent volume at this path in
