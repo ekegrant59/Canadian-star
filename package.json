@@ -42,6 +42,8 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@emnapi/core": "^1.11.3",
+    "@emnapi/runtime": "^1.11.3",
     "@playwright/test": "^1.51.1",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "26.2.0",
@@ -51,6 +53,7 @@
     "@types/react-dom": "19.2.4",
     "dotenv": "17.4.2",
     "drizzle-kit": "0.31.10",
+    "esbuild": "^0.28.2",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.0",
     "husky": "9.1.7",
