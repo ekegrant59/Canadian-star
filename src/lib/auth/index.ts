@@ -33,7 +33,13 @@ function requireEnv(name: string): string {
   // Route handlers are imported while Next collects build-time metadata. The
   // real secret is intentionally runtime-only in Coolify, so allow module
   // evaluation during that phase without weakening runtime validation.
-  if (!value && process.env.NEXT_PHASE === 'phase-production-build') {
+  // During Next's build-time route analysis there is no Node runtime context.
+  // Coolify intentionally supplies this secret only to the running container.
+  // Never use this placeholder once a request is actually executing.
+  if (
+    !value &&
+    (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NEXT_RUNTIME !== 'nodejs')
+  ) {
     return 'build-only-secret-not-used-at-runtime';
   }
   if (!value) throw new Error(`${name} is not set`);
