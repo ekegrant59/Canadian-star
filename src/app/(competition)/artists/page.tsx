@@ -9,6 +9,13 @@ import type { VotingArtist } from '@/types/landing';
 import { VotingModal } from '@/components/voting/voting-modal';
 import { subscribeToNewsletterAction } from '@/server/actions/newsletter';
 
+type PublicSponsor = {
+  id: string;
+  name: string;
+  websiteUrl: string | null;
+  logoUrl: string | null;
+};
+
 export default function ArtistsRosterPage() {
   const [artists, setArtists] = useState<VotingArtist[]>([]);
   const [votingOpen, setVotingOpen] = useState(false);
@@ -18,6 +25,7 @@ export default function ArtistsRosterPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterStatus, setNewsletterStatus] = useState('');
+  const [sponsors, setSponsors] = useState<PublicSponsor[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -33,6 +41,15 @@ export default function ArtistsRosterPage() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/public/sponsors')
+      .then((response) => (response.ok ? response.json() : { sponsors: [] }))
+      .then((payload) => {
+        if (Array.isArray(payload.sponsors)) setSponsors(payload.sponsors);
+      })
+      .catch(() => undefined);
   }, []);
 
   const genres = useMemo(() => {
@@ -220,15 +237,22 @@ export default function ArtistsRosterPage() {
           <div className="marquee-track">
             {[...Array(3)].map((_, setIdx) => (
               <div className="marquee-group" key={setIdx}>
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Image
-                    key={`${setIdx}-${i}`}
-                    src="/images/reference/image10_4_4.png"
-                    width={160}
-                    height={36}
-                    unoptimized
-                    alt="Official Partner"
-                  />
+                {(sponsors.length ? sponsors : []).map((sponsor) => (
+                  <a
+                    key={`${setIdx}-${sponsor.id}`}
+                    href={sponsor.websiteUrl ?? '#'}
+                    target={sponsor.websiteUrl ? '_blank' : undefined}
+                    rel="noreferrer"
+                    aria-label={sponsor.name}
+                  >
+                    <Image
+                      src={sponsor.logoUrl ?? '/images/artist-profile-hero.jpg'}
+                      width={160}
+                      height={36}
+                      unoptimized
+                      alt={sponsor.name}
+                    />
+                  </a>
                 ))}
               </div>
             ))}

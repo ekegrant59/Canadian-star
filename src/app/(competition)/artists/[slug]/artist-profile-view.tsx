@@ -19,12 +19,20 @@ import type { VotingArtist } from '@/types/landing';
 import { VotingModal } from '@/components/voting/voting-modal';
 import { MusicCover } from '@/components/shared/music-cover';
 
+type PublicSponsor = {
+  id: string;
+  name: string;
+  websiteUrl: string | null;
+  logoUrl: string | null;
+};
+
 interface ArtistProfileViewProps {
   artist: VotingArtist;
   votingOpen: boolean;
+  sponsors: PublicSponsor[];
 }
 
-export function ArtistProfileView({ artist, votingOpen }: ArtistProfileViewProps) {
+export function ArtistProfileView({ artist, votingOpen, sponsors }: ArtistProfileViewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const musicLinks =
     artist.musicMetadata ??
@@ -280,15 +288,22 @@ export function ArtistProfileView({ artist, votingOpen }: ArtistProfileViewProps
           <div className="marquee-track">
             {[...Array(3)].map((_, setIdx) => (
               <div className="marquee-group" key={setIdx}>
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Image
-                    key={`${setIdx}-${i}`}
-                    src="/images/reference/image10_4_4.png"
-                    width={160}
-                    height={36}
-                    unoptimized
-                    alt="Official Partner"
-                  />
+                {sponsors.map((sponsor) => (
+                  <a
+                    key={`${setIdx}-${sponsor.id}`}
+                    href={sponsor.websiteUrl ?? '#'}
+                    target={sponsor.websiteUrl ? '_blank' : undefined}
+                    rel="noreferrer"
+                    aria-label={sponsor.name}
+                  >
+                    <Image
+                      src={sponsor.logoUrl ?? '/images/artist-profile-hero.jpg'}
+                      width={160}
+                      height={36}
+                      unoptimized
+                      alt={sponsor.name}
+                    />
+                  </a>
                 ))}
               </div>
             ))}

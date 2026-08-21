@@ -260,7 +260,6 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 16px;">
                 <tr>
                   <td align="center" style="padding: 12px 16px; background-color: #171616; border: 1px solid #242424; border-radius: 4px; font-size: 12px; line-height: 18px; color: #8F8D8B;">
-                    <span style="display: inline-block; margin-right: 6px;">&#128274;</span>
                     ${escapeHtml(securityNotice)}
                   </td>
                 </tr>

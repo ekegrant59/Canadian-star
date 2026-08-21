@@ -89,9 +89,7 @@ export function renderArtistApplicationApprovedEmail(props: ArtistApplicationApp
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
       <tr>
         <td valign="top" width="28" style="padding-right: 12px;">
-          <div style="width: 24px; height: 24px; border-radius: 50%; background-color: #FF5C00; color: #FFFFFF; font-size: 13px; font-weight: bold; text-align: center; line-height: 24px;">
-            &#9733;
-          </div>
+          <div style="width: 4px; height: 24px; background-color: #FF5C00; border-radius: 2px;"></div>
         </td>
         <td valign="top" style="font-size: 14px; line-height: 22px; color: #E5E2E1;">
           <strong>Congratulations ${escapeHtml(artistName)}!</strong> Your application for <strong>${escapeHtml(actName)}</strong> has been approved and you are eligible to continue to the next phase of the competition.

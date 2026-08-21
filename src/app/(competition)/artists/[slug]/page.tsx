@@ -5,6 +5,7 @@ import { ArtistProfileView } from './artist-profile-view';
 import {
   getFeatureFlag,
   getPublicArtistBySlug,
+  getConfirmedSponsors,
   isCompetitionStageActive,
 } from '@/server/queries/public';
 import { EVENT } from '@/config/event';
@@ -52,10 +53,11 @@ interface PageProps {
 
 export default async function ArtistProfilePage({ params }: PageProps) {
   const { slug } = await params;
-  const [realArtist, flag, stageActive] = await Promise.all([
+  const [realArtist, flag, stageActive, sponsorRows] = await Promise.all([
     getPublicArtistBySlug(slug),
     getFeatureFlag('VOTING_OPEN'),
     isCompetitionStageActive('voting'),
+    getConfirmedSponsors(),
   ]);
   const musicMetadata = realArtist
     ? await resolveMusicLinkMetadata(Object.values(realArtist.musicLinks ?? {}).filter(Boolean))
@@ -96,7 +98,19 @@ export default async function ArtistProfilePage({ params }: PageProps) {
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-[#0e0e0e]" />}>
-      <ArtistProfileView artist={artist} votingOpen={flag && stageActive} />
+      <ArtistProfileView
+        artist={artist}
+        votingOpen={flag && stageActive}
+        sponsors={sponsorRows.map((sponsor) => ({
+          id: sponsor.id,
+          name: sponsor.name,
+          websiteUrl: sponsor.websiteUrl,
+          logoUrl:
+            sponsor.logoKey && process.env.CLOUDINARY_CLOUD_NAME
+              ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/c_limit,w_400,h_160,q_auto,f_auto/${sponsor.logoKey}`
+              : null,
+        }))}
+      />
     </Suspense>
   );
 }

@@ -143,7 +143,7 @@ export function ArtistProfileView({
               </div>
             </div>
           )}
-          {canEdit && onEdit && (
+          {/* {canEdit && onEdit && (
             <button
               type="button"
               onClick={onEdit}
@@ -151,7 +151,7 @@ export function ArtistProfileView({
             >
               EDIT AND RESUBMIT APPLICATION
             </button>
-          )}
+          )} */}
         </section>
       )}
 

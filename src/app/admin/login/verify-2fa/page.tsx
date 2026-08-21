@@ -120,23 +120,6 @@ export default function Admin2FAVerifyPage() {
               </div>
             )}
 
-            {/* Remember Device Checkbox */}
-            <div className="flex items-center gap-2">
-              <input
-                id="remember-device"
-                type="checkbox"
-                checked={rememberDevice}
-                onChange={(e) => setRememberDevice(e.target.checked)}
-                className="h-4 w-4 rounded-sm border-[#333] bg-[#121212] text-[#FF5C00] focus:ring-[#FF5C00]"
-              />
-              <label
-                htmlFor="remember-device"
-                className="cursor-pointer text-xs font-medium text-gray-400"
-              >
-                Trust this device for 30 days
-              </label>
-            </div>
-
             <button
               type="submit"
               disabled={
