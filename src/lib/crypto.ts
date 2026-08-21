@@ -1,6 +1,7 @@
 import 'server-only';
 
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { isIP } from 'node:net';
 
 /**
  * Hashing and token helpers.
@@ -33,6 +34,56 @@ export function hashIp(ip: string): string {
   return createHash('sha256').update(`${getPepper()}:${ip}`).digest('hex');
 }
 
+/**
+ * Hashes a coarse network prefix. This is deliberately weaker context than a
+ * full IP: shared homes, offices, and carrier NAT must not be treated as one
+ * person. IPv4 uses /24 and IPv6 uses /64.
+ */
+export function hashIpPrefix(ip: string): string {
+  const normalized = ip
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '');
+  const address = normalized.split('%', 1)[0]!;
+  let prefix = address;
+  if (isIP(address) === 4) {
+    prefix = address.split('.').slice(0, 3).join('.');
+  } else if (isIP(address) === 6) {
+    const mappedIpv4 = address.match(/^(?:::ffff:|0:0:0:0:0:ffff:)(\d+\.\d+\.\d+\.\d+)$/)?.[1];
+    if (mappedIpv4 && isIP(mappedIpv4) === 4) {
+      prefix = `mapped-v4:${mappedIpv4.split('.').slice(0, 3).join('.')}`;
+      return createHash('sha256').update(`${getPepper()}:prefix:${prefix}`).digest('hex');
+    }
+    // Expand compressed IPv6 (and IPv4-mapped IPv6) before taking /64 so
+    // equivalent spellings cannot evade the same network correlation bucket.
+    const groups = address.includes('::')
+      ? (() => {
+          const [left, right] = address.split('::');
+          const leftGroups = left ? left.split(':') : [];
+          const rightGroups = right ? right.split(':') : [];
+          return [
+            ...leftGroups,
+            ...Array(8 - leftGroups.length - rightGroups.length).fill('0'),
+            ...rightGroups,
+          ];
+        })()
+      : address.split(':');
+    const expanded = groups.map((group) => group.padStart(4, '0'));
+    if (expanded.slice(0, 5).every((group) => group === '0000') && expanded[5] === 'ffff') {
+      const octets = [
+        Number.parseInt(expanded[6]!.slice(0, 2), 16),
+        Number.parseInt(expanded[6]!.slice(2), 16),
+        Number.parseInt(expanded[7]!.slice(0, 2), 16),
+        Number.parseInt(expanded[7]!.slice(2), 16),
+      ];
+      prefix = `mapped-v4:${octets.slice(0, 3).join('.')}`;
+      return createHash('sha256').update(`${getPepper()}:prefix:${prefix}`).digest('hex');
+    }
+    prefix = expanded.slice(0, 4).join(':');
+  }
+  return createHash('sha256').update(`${getPepper()}:prefix:${prefix}`).digest('hex');
+}
+
 /** Hashes a user agent for fraud correlation. Same reasoning as hashIp. */
 export function hashUserAgent(userAgent: string): string {
   return createHash('sha256').update(`${getPepper()}:${userAgent}`).digest('hex');
@@ -44,6 +95,18 @@ export function hashUserAgent(userAgent: string): string {
  */
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Hashes a low-entropy one-time code with a server secret.
+ * Plain SHA-256 is insufficient for a six-digit OTP: a database reader could
+ * try all one million values offline. HMAC makes the environment secret part
+ * of verification, so database access alone is not enough to recover a code.
+ */
+export function hashVerificationCode(voteId: string, code: string): string {
+  const secret = process.env.VOTE_OTP_PEPPER || process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error('VOTE_OTP_PEPPER or BETTER_AUTH_SECRET is not set');
+  return createHmac('sha256', secret).update(`${voteId}:${code}`).digest('hex');
 }
 
 /** Generates a URL-safe token. 32 bytes is 256 bits of entropy. */

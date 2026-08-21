@@ -1,13 +1,18 @@
 import 'server-only';
 
 import { betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { magicLink, twoFactor } from 'better-auth/plugins';
+import { nextCookies } from 'better-auth/next-js';
+import { twoFactor } from 'better-auth/plugins';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { SITE_URL } from '@/config/site-url';
 import { canonicalizeEmail } from '@/lib/email-normalize';
 import { hashIp } from '@/lib/crypto';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/lib/validation/auth';
+import { sendEmail } from '@/lib/email/send';
+import { renderCustomBroadcastEmail } from '@/lib/email/templates';
 import type { Role } from './roles';
 
 /**
@@ -16,7 +21,8 @@ import type { Role } from './roles';
  * Chosen over Auth.js because Auth.js v5 remains 5.0.0-beta.x in maintenance
  * mode, its maintainers point new projects elsewhere, and its July 2026
  * advisory batch included an email validation bypass via Unicode homoglyphs of
- * `@` — the exact attack class that breaks an email-identity voting system.
+ * `@`, which is the exact attack class that breaks an email-identity voting
+ * system.
  *
  * Sessions live in our Postgres so an admin can revoke immediately, which
  * matters for accounts that can alter vote tallies and scores.
@@ -38,12 +44,14 @@ function parseAllowlist(raw: string | undefined): Set<string> {
   return new Set(entries);
 }
 
-export const ADMIN_ALLOWLIST = parseAllowlist(process.env.ADMIN_EMAIL_ALLOWLIST);
+export const ADMIN_ALLOWLIST = parseAllowlist(
+  [process.env.ADMIN_EMAIL_ALLOWLIST, process.env.ADMIN_SEED_EMAIL].filter(Boolean).join(','),
+);
 export const JUDGE_ALLOWLIST = parseAllowlist(process.env.JUDGE_EMAIL_ALLOWLIST);
 export const REVIEWER_ALLOWLIST = parseAllowlist(process.env.REVIEWER_EMAIL_ALLOWLIST);
 
 /**
- * Resolves the role for an email at sign-in.
+ * Resolves whether an email belongs to a privileged provisioning allowlist.
  *
  * Privileged roles come ONLY from the environment allowlist. There is no path
  * by which a request body can influence this, which is the point: judge and
@@ -73,17 +81,36 @@ export const auth = betterAuth({
 
   secret: requireEnv('BETTER_AUTH_SECRET'),
 
-  /**
-   * Magic links are built from this. If it is wrong or missing, every sign-in
-   * email points somewhere that does not exist, and the failure is silent:
-   * the email sends, the link is just broken. SITE_URL throws in production
-   * when unset rather than defaulting to localhost.
-   */
+  /** Canonical origin for Better Auth callback and password-reset URLs. */
   baseURL: process.env.BETTER_AUTH_URL?.replace(/\/+$/, '') ?? SITE_URL,
 
-  // No password auth anywhere. Magic link only, which also satisfies WCAG 2.2
-  // 3.3.8 Accessible Authentication without a cognitive-test CAPTCHA.
-  emailAndPassword: { enabled: false },
+  /**
+   * Email and password for artist accounts.
+   *
+   * Password authentication is the active account sign-in method for now.
+   */
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: PASSWORD_MIN_LENGTH,
+    maxPasswordLength: PASSWORD_MAX_LENGTH,
+    requireEmailVerification: false,
+    autoSignIn: true,
+    async sendResetPassword({ user, url }) {
+      const rendered = renderCustomBroadcastEmail({
+        headline: 'Reset your password',
+        bodyHtml: '<p>Use the secure link below to reset your password.</p>',
+        ctaText: 'RESET PASSWORD',
+        ctaUrl: url,
+      });
+      const result = await sendEmail({
+        to: user.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+      });
+      if (!result.success) throw new Error(result.error || 'Password reset email failed.');
+    },
+  },
 
   session: {
     // Database sessions: revocation is immediate.
@@ -109,6 +136,7 @@ export const auth = betterAuth({
   user: {
     additionalFields: {
       role: { type: 'string', defaultValue: 'artist', input: false },
+      adminAccessLevel: { type: 'string', defaultValue: 'super', input: false },
       emailRaw: { type: 'string', required: false, input: false },
       emailCanonical: { type: 'string', required: false, input: false },
       twoFactorEnabled: { type: 'boolean', defaultValue: false, input: false },
@@ -117,45 +145,40 @@ export const auth = betterAuth({
   },
 
   plugins: [
-    magicLink({
-      // 15 minute expiry, hashed at rest, consumed atomically on first use.
-      // Better Auth defaults to plaintext, so this must remain explicit.
-      expiresIn: 60 * 15,
-      storeToken: 'hashed',
-      disableSignUp: false,
-      async sendMagicLink({ email, url }) {
-        // Phase 3 wires Resend. Until then, log in development only so a
-        // developer can sign in without an email provider configured.
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`[magic-link] ${email} -> ${url}`);
-          return;
-        }
-        throw new Error('Email provider not configured. Wire Resend in Phase 3.');
-      },
-    }),
-
-    // TOTP. Mandatory for admin accounts, enforced in requireRole.
+    // Enrollment and verification are available in every environment. Admin
+    // guards also enforce TOTP everywhere, including local and staging.
     twoFactor({
       issuer: 'Canadian Country Star',
     }),
+
+    // Must be last. Server Actions call auth.api directly, and this bridge
+    // copies Better Auth's Set-Cookie headers into Next's response cookie jar.
+    // Without it a successful login redirects with no usable session.
+    nextCookies(),
   ],
 
   databaseHooks: {
     user: {
       create: {
         /**
-         * Sets the canonical email and the allowlist-derived role. Runs
-         * server-side on every user creation, so a crafted sign-up body cannot
-         * grant itself a privileged role.
+         * Sets the canonical email and rejects privileged addresses. Runs on
+         * every Better Auth user-creation path, so direct API calls cannot
+         * bypass the public signup action and claim an allowlisted identity.
          */
         before: async (user) => {
           const canonical = canonicalizeEmail(user.email);
+          const role = resolveRoleForEmail(user.email);
+          if (role !== 'artist') {
+            throw new APIError('FORBIDDEN', {
+              message: 'Privileged accounts must be provisioned by an administrator.',
+            });
+          }
           return {
             data: {
               ...user,
               emailRaw: user.email,
               emailCanonical: canonical ?? user.email.toLowerCase(),
-              role: resolveRoleForEmail(user.email),
+              role,
             },
           };
         },

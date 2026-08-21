@@ -44,7 +44,7 @@ export type SignedUpload = {
  *     a path is a traversal and overwrite vector.
  *   - The folder is pinned per artist.
  *   - allowed_formats rejects anything that is not a real image, checked by
- *     Cloudinary against actual file content rather than the extension.
+ *     Cloudinary against actual file content, not the extension.
  *   - An incoming transformation re-encodes and caps dimensions BEFORE storage,
  *     which strips EXIF (GPS in a home-studio photo is a real privacy problem,
  *     CLAUDE.md security baseline) and defuses decompression bombs: a
@@ -60,7 +60,7 @@ export function createSignedPhotoUpload(artistId: string): SignedUpload {
 
   /**
    * c_limit only shrinks: a photo already under 2400px keeps its dimensions
-   * rather than being upscaled. q_auto and f_auto let Cloudinary pick codec
+   * instead of being upscaled. q_auto and f_auto let Cloudinary pick codec
    * and quality per requesting browser.
    */
   const params: Record<string, string | number> = {
@@ -86,7 +86,7 @@ export function createSignedPhotoUpload(artistId: string): SignedUpload {
   };
 }
 
-/** Named delivery variants, so sizes are defined once rather than per call site. */
+/** Named delivery variants, so sizes get defined once, not per call site. */
 export const MEDIA_VARIANTS = {
   thumb: 'c_fill,g_auto,w_400,h_400,q_auto,f_auto',
   card: 'c_fill,g_auto,w_800,h_600,q_auto,f_auto',

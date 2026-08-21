@@ -1,0 +1,2 @@
+CREATE TYPE "public"."admin_access_level" AS ENUM('super', 'read_write', 'read_only');--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "admin_access_level" "admin_access_level" DEFAULT 'super' NOT NULL;

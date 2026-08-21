@@ -2,13 +2,18 @@ import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import { eq, inArray } from 'drizzle-orm';
+import { hashPassword } from 'better-auth/crypto';
 import * as schema from '../src/db/schema';
+import { normalizeEmail } from '../src/lib/email-normalize';
+import { PASSWORD_MIN_LENGTH } from '../src/lib/validation/auth';
 import {
   SHOW_DATES,
   EVENT,
   DEFAULT_SCORING_WEIGHTS,
   DEFAULT_SCORING_CRITERIA,
   FEATURE_FLAG_DEFAULTS,
+  MILESTONES,
 } from '../src/config/event';
 
 /**
@@ -24,22 +29,7 @@ import {
  * and seeding a confirmed record would make it render publicly.
  */
 
-const ONTARIO_CITIES = [
-  'Peterborough',
-  'Kingston',
-  'Oshawa',
-  'Belleville',
-  'Cobourg',
-  'Lindsay',
-  'Barrie',
-  'Kitchener',
-  'London',
-  'Hamilton',
-  'Ottawa',
-  'Sudbury',
-];
-
-const ACT_NAMES = [
+const LEGACY_SAMPLE_ACT_NAMES = [
   'The Gravel Road Band',
   'Maple Creek',
   'Sarah Whitfield',
@@ -70,6 +60,37 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+const PHASE_SEEDS = [
+  {
+    key: 'applications' as const,
+    label: 'Applications',
+    startsAt: `${MILESTONES.applicationsOpen}T00:00:00-04:00`,
+    endsAt: `${MILESTONES.applicationsClose}T23:59:59-04:00`,
+    displayOrder: 1,
+  },
+  {
+    key: 'voting' as const,
+    label: 'Fan Voting',
+    startsAt: `${MILESTONES.votingOpen}T00:00:00-04:00`,
+    endsAt: `${MILESTONES.votingClose}T23:59:59-05:00`,
+    displayOrder: 2,
+  },
+  {
+    key: 'anticipation' as const,
+    label: 'Industry Review & Anticipation',
+    startsAt: '2026-12-01T00:00:00-05:00',
+    endsAt: '2027-01-08T23:59:59-05:00',
+    displayOrder: 3,
+  },
+  {
+    key: 'finalists' as const,
+    label: 'Finalists & Live Shows',
+    startsAt: '2027-01-09T00:00:00-05:00',
+    endsAt: '2027-02-07T23:59:59-05:00',
+    displayOrder: 4,
+  },
+];
+
 async function main() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error('DATABASE_URL is not set');
@@ -78,6 +99,81 @@ async function main() {
   const db = drizzle(pool, { schema });
 
   console.log('Seeding...');
+
+  // -------------------------------------------------------------------------
+  // Environment-seeded administrator account
+  // -------------------------------------------------------------------------
+  const adminEmail = process.env.ADMIN_SEED_EMAIL;
+  const adminPassword = process.env.ADMIN_SEED_PASSWORD;
+  if (Boolean(adminEmail) !== Boolean(adminPassword)) {
+    throw new Error('ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD must be set together');
+  }
+  if (adminEmail && adminPassword) {
+    if (adminPassword.length < PASSWORD_MIN_LENGTH && process.env.NODE_ENV === 'production') {
+      throw new Error(`ADMIN_SEED_PASSWORD must be at least ${PASSWORD_MIN_LENGTH} characters`);
+    }
+    if (adminPassword.length < PASSWORD_MIN_LENGTH) {
+      console.warn(
+        `  warning: development admin password is shorter than the ${PASSWORD_MIN_LENGTH}-character production minimum`,
+      );
+    }
+    const normalized = normalizeEmail(adminEmail);
+    if (!normalized.ok) throw new Error('ADMIN_SEED_EMAIL is invalid');
+
+    const existing = await db.query.users.findFirst({
+      where: (users, { eq: equals }) => equals(users.emailCanonical, normalized.canonical),
+    });
+    const userId = existing?.id ?? randomUUID();
+    const passwordHash = await hashPassword(adminPassword);
+
+    await db.transaction(async (tx) => {
+      if (existing) {
+        await tx
+          .update(schema.users)
+          .set({
+            email: normalized.raw,
+            emailRaw: normalized.raw,
+            emailCanonical: normalized.canonical,
+            name: process.env.ADMIN_SEED_NAME || existing.name || 'Competition Administrator',
+            role: 'admin',
+            adminAccessLevel: 'super',
+            adminPasswordSetAt: new Date(),
+            emailVerified: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.users.id, userId));
+      } else {
+        await tx.insert(schema.users).values({
+          id: userId,
+          email: normalized.raw,
+          emailRaw: normalized.raw,
+          emailCanonical: normalized.canonical,
+          name: process.env.ADMIN_SEED_NAME || 'Competition Administrator',
+          role: 'admin',
+          adminAccessLevel: 'super',
+          adminPasswordSetAt: new Date(),
+          emailVerified: true,
+        });
+      }
+
+      await tx
+        .insert(schema.accounts)
+        .values({
+          id: randomUUID(),
+          userId,
+          accountId: userId,
+          providerId: 'credential',
+          password: passwordHash,
+        })
+        .onConflictDoUpdate({
+          target: [schema.accounts.providerId, schema.accounts.accountId],
+          set: { password: passwordHash, updatedAt: new Date() },
+        });
+    });
+    console.log(`  admin account: ${normalized.raw}`);
+  } else {
+    console.log('  admin account: skipped (ADMIN_SEED_EMAIL not set)');
+  }
 
   // -------------------------------------------------------------------------
   // Shows (§3)
@@ -97,6 +193,33 @@ async function main() {
       .onConflictDoNothing({ target: schema.shows.key });
   }
   console.log(`  shows: ${SHOW_DATES.length}`);
+
+  // -------------------------------------------------------------------------
+  // Editable campaign timeline
+  // -------------------------------------------------------------------------
+  for (const phase of PHASE_SEEDS) {
+    await db
+      .insert(schema.competitionPhases)
+      .values({
+        id: randomUUID(),
+        key: phase.key,
+        label: phase.label,
+        startsAt: new Date(phase.startsAt),
+        endsAt: new Date(phase.endsAt),
+        displayOrder: phase.displayOrder,
+      })
+      .onConflictDoUpdate({
+        target: schema.competitionPhases.key,
+        set: {
+          label: phase.label,
+          startsAt: new Date(phase.startsAt),
+          endsAt: new Date(phase.endsAt),
+          displayOrder: phase.displayOrder,
+          updatedAt: new Date(),
+        },
+      });
+  }
+  console.log(`  campaign phases: ${PHASE_SEEDS.length}`);
 
   // -------------------------------------------------------------------------
   // Scoring weights (§7). Tip jar seeded DISABLED.
@@ -147,10 +270,28 @@ async function main() {
       })
       .onConflictDoNothing({ target: schema.settings.key });
   }
+  await db
+    .insert(schema.settings)
+    .values({
+      key: 'competition:stage',
+      value: 'applications',
+      description: 'Live competition phase for landing and artist dashboards',
+    })
+    .onConflictDoNothing({ target: schema.settings.key });
+  await db
+    .insert(schema.settings)
+    .values({
+      key: 'competition:stage_override',
+      value: 'auto',
+      description: 'Manual phase override; auto follows the campaign timeline',
+    })
+    .onConflictDoNothing({ target: schema.settings.key });
   console.log(`  feature flags: ${Object.keys(FEATURE_FLAG_DEFAULTS).length}`);
 
   // -------------------------------------------------------------------------
-  // Dev-only sample data. Never run against production.
+  // Remove sample applications created by older development seeds. New seeds
+  // never manufacture users or applications; those records must come through
+  // the real artist workflow.
   // -------------------------------------------------------------------------
   if (process.env.NODE_ENV === 'production') {
     console.log('Production detected: skipping sample data.');
@@ -158,74 +299,12 @@ async function main() {
     return;
   }
 
-  const statuses = ['draft', 'submitted', 'under_review', 'shortlisted', 'finalist'] as const;
-  let created = 0;
-
-  for (const [index, actName] of ACT_NAMES.entries()) {
-    const slug = slugify(actName);
-
-    const existing = await db.query.artists.findFirst({
-      where: (artists, { eq }) => eq(artists.slug, slug),
-    });
-    if (existing) continue;
-
-    const userId = randomUUID();
-    const email = `${slug}@example.test`;
-
-    await db.insert(schema.users).values({
-      id: userId,
-      email,
-      emailRaw: email,
-      emailCanonical: email,
-      emailVerified: true,
-      name: actName,
-      role: 'artist',
-    });
-
-    const status = statuses[index % statuses.length]!;
-    const isPublished = status === 'shortlisted' || status === 'finalist';
-
-    const artistId = randomUUID();
-    await db.insert(schema.artists).values({
-      id: artistId,
-      userId,
-      actName,
-      slug,
-      actType: index % 3 === 0 ? 'solo' : index % 3 === 1 ? 'band' : 'duo',
-      bio: `${actName} is an emerging country act from ${ONTARIO_CITIES[index % ONTARIO_CITIES.length]}, Ontario. Sample seed data for development.`,
-      locationCity: ONTARIO_CITIES[index % ONTARIO_CITIES.length]!,
-      locationProvince: 'ON',
-      formationYear: 2015 + (index % 10),
-      memberCount: index % 3 === 0 ? 1 : 2 + (index % 4),
-      photoKeys: [],
-      socialLinks: {},
-      musicLinks: {},
-      isPublished,
-      publishedAt: isPublished ? new Date() : null,
-      contactEmail: email,
-    });
-
-    await db.insert(schema.applications).values({
-      id: randomUUID(),
-      artistId,
-      status,
-      currentStep: status === 'draft' ? 3 : 8,
-      isOntarioResident: true,
-      isOfAge: true,
-      hasRecordingContract: false,
-      hasManagementContract: false,
-      wonPreviousCompetition: false,
-      availableAllDates: true,
-      acceptedRules: status !== 'draft',
-      acceptedMediaRelease: status !== 'draft',
-      acceptedPrivacyPolicy: status !== 'draft',
-      submittedAt: status === 'draft' ? null : new Date(),
-    });
-
-    created += 1;
-  }
-
-  console.log(`  sample artists + applications: ${created}`);
+  const legacyEmails = LEGACY_SAMPLE_ACT_NAMES.map((name) => `${slugify(name)}@example.test`);
+  const removed = await db
+    .delete(schema.users)
+    .where(inArray(schema.users.emailCanonical, legacyEmails))
+    .returning({ id: schema.users.id });
+  console.log(`  legacy sample artists + applications removed: ${removed.length}`);
   console.log('Seed complete.');
 
   await pool.end();

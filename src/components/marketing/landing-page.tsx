@@ -2,19 +2,15 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState, useEffect, useRef, type FormEvent } from 'react';
-import {
-  CalendarDays,
-  FileText,
-  Globe,
-  MapPin,
-  Menu,
-  Music2,
-  Plane,
-  UserCheck,
-  Users,
-  X,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Mail, Megaphone, X } from 'lucide-react';
+import { useState, useEffect, useRef, type FormEvent, type PointerEvent } from 'react';
+import { SiteHeader, Brand } from '@/components/shared/site-header';
+import { StageHero } from './stages/stage-hero';
+import { StageClosingCta } from './stages/stage-closing-cta';
+import { LandingStageRenderer } from './landing-stage-renderer';
+import { STAGE_VIEW_MODELS } from '@/data/landing-fixtures';
+import type { LandingStage, LandingStageViewModel, VotingArtist } from '@/types/landing';
+import { subscribeToNewsletterAction } from '@/server/actions/newsletter';
 
 const image = (name: string) => `/images/reference/${name}`;
 
@@ -22,7 +18,7 @@ const journey = [
   {
     label: 'APPLY',
     title: 'APPLY',
-    copy: 'Submit your best original songs and live performance videos.',
+    copy: 'Submit your best original songs and live performance videos for review.',
     image: image('image1_4_4.png'),
   },
   {
@@ -51,39 +47,17 @@ const journey = [
   },
 ] as const;
 
-const eligibility = [
-  {
-    icon: Globe,
-    title: 'Residency',
-    copy: 'Must be a legal resident of Canada.',
-  },
-  {
-    icon: UserCheck,
-    title: 'Age Requirements',
-    copy: '18 years of age or older at the time of application.',
-  },
-  {
-    icon: Users,
-    title: 'Artist Format',
-    copy: 'Solo artists, duos, and full bands are all welcome to apply.',
-  },
-  {
-    icon: FileText,
-    title: 'Agreements',
-    copy: 'Must not be bound by exclusive recording or management contracts that conflict with the competition terms.',
-  },
-  {
-    icon: Music2,
-    title: 'Original Music',
-    copy: 'Must have original material prepared for performance.',
-  },
-  {
-    icon: Plane,
-    title: 'Travel & Accommodation',
-    copy: 'Artists are responsible for their own travel and accommodation unless otherwise specified.',
-    badge: 'DETAILS TO BE CONFIRMED',
-  },
-] as const;
+export type LandingScheduleItem = {
+  n: string;
+  subtitle: string;
+  date: string;
+  copy: string;
+  final: boolean;
+  btn: string;
+  ticketUrl?: string | null;
+  venueName?: string | null;
+  venueAddress?: string | null;
+};
 
 const prizes = [
   {
@@ -109,33 +83,6 @@ const prizes = [
   {
     title: 'LIVE PERFORMANCE',
     copy: 'Guaranteed slots at major Canadian country music festivals in the upcoming season.',
-  },
-] as const;
-
-const judges = [
-  {
-    name: 'FLINT KANE',
-    role: 'A&R DIRECTOR, NASHVILLE',
-    image: image('image5_4_4.png'),
-    copy: 'Over 20 years discovering top country talent across North America',
-  },
-  {
-    name: 'ELENA VANCE',
-    role: 'HIT SONGWRITER',
-    image: image('image6_4_4.png'),
-    copy: 'Penned over 15 number 2 singles for top country artists.',
-  },
-  {
-    name: 'MARCUS THORNE',
-    role: 'A&R DIRECTOR, NASHVILLE',
-    image: image('image7_4_4.png'),
-    copy: 'Over 20 years discovering top country talent across North America',
-  },
-  {
-    name: 'DAVIDA STERLING',
-    role: 'FESTIVAL PRODUCER',
-    image: image('image8_4_4.png'),
-    copy: 'Creator of Canada’s largest summer country music festivals.',
   },
 ] as const;
 
@@ -182,14 +129,6 @@ const shows = [
   },
 ] as const;
 
-function Brand() {
-  return (
-    <Link href="#top" className="brand" aria-label="Canadian Star home">
-      <span>CANADIAN STAR</span>
-    </Link>
-  );
-}
-
 function ButtonLink({
   href,
   children,
@@ -206,62 +145,105 @@ function ButtonLink({
   );
 }
 
-export function LandingPage() {
-  const [menuOpen, setMenuOpen] = useState(false);
+export interface LandingPageProps {
+  stage?: LandingStage;
+  viewModelOverride?: Partial<LandingStageViewModel>;
+  schedule?: LandingScheduleItem[];
+  announcement?: {
+    title: string;
+    body: string;
+    ctaLabel: string | null;
+    ctaUrl: string | null;
+    severity: string;
+  } | null;
+  judges?: Array<{ id: string; name: string; role: string; bio: string; imageUrl: string | null }>;
+  sponsors?: Array<{ id: string; name: string; websiteUrl: string | null; logoUrl: string | null }>;
+  onSelectArtist?: (artist: VotingArtist) => void;
+  onVoteSubmit?: (artistId: string) => void;
+  onCastVoteClick?: () => void;
+}
+
+type NewsletterModalState = {
+  kind: 'success' | 'already_registered' | 'error';
+  message: string;
+} | null;
+
+export function LandingPage({
+  stage = 'applications',
+  viewModelOverride,
+  schedule,
+  announcement,
+  judges: databaseJudges,
+  sponsors,
+  onSelectArtist,
+  onVoteSubmit,
+  onCastVoteClick,
+}: LandingPageProps) {
+  const baseViewModel = STAGE_VIEW_MODELS[stage] ?? STAGE_VIEW_MODELS.applications;
+  const viewModel: LandingStageViewModel = {
+    stage: viewModelOverride?.stage ?? stage,
+    kicker: viewModelOverride?.kicker ?? baseViewModel.kicker,
+    headline: viewModelOverride?.headline ?? baseViewModel.headline,
+    subhead: viewModelOverride?.subhead ?? baseViewModel.subhead,
+    datePillText: viewModelOverride?.datePillText ?? baseViewModel.datePillText,
+    locationPillText: viewModelOverride?.locationPillText ?? baseViewModel.locationPillText,
+    primaryCta: viewModelOverride?.primaryCta ?? baseViewModel.primaryCta,
+    countdown: viewModelOverride?.countdown ?? baseViewModel.countdown,
+    votingOpen: viewModelOverride?.votingOpen ?? baseViewModel.votingOpen,
+    votingArtists: viewModelOverride?.votingArtists ?? baseViewModel.votingArtists,
+    finalists: viewModelOverride?.finalists ?? baseViewModel.finalists,
+    finalistShows: viewModelOverride?.finalistShows ?? baseViewModel.finalistShows,
+    grandFinal: viewModelOverride?.grandFinal ?? baseViewModel.grandFinal,
+  };
+  const scheduleShows: LandingScheduleItem[] = schedule?.length ? schedule : [...shows];
+  const displayedJudges =
+    databaseJudges?.map((judge) => ({
+      id: judge.id,
+      name: judge.name,
+      role: judge.role,
+      copy: judge.bio,
+      image: judge.imageUrl,
+    })) ?? [];
+
   const [journeyIndex, setJourneyIndex] = useState(0);
   const [scheduleIndex, setScheduleIndex] = useState(0);
   const [journeyPaused, setJourneyPaused] = useState(false);
   const [schedulePaused, setSchedulePaused] = useState(false);
-  const [journeyInView, setJourneyInView] = useState(false);
-  const [scheduleInView, setScheduleInView] = useState(false);
-  const [newsletterStatus, setNewsletterStatus] = useState('');
+  const [newsletterModal, setNewsletterModal] = useState<NewsletterModalState>(null);
+  const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
 
   const journeySectionRef = useRef<HTMLElement | null>(null);
   const scheduleSectionRef = useRef<HTMLElement | null>(null);
   const tabsContainerRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const scheduleRowRef = useRef<HTMLDivElement | null>(null);
+  const journeyPointerStartRef = useRef<number | null>(null);
 
   const currentJourney = journey[journeyIndex] ?? journey[0];
-
-  // IntersectionObserver to observe viewport visibility of moving sections
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.target === journeySectionRef.current) {
-            setJourneyInView(entry.isIntersecting);
-          }
-          if (entry.target === scheduleSectionRef.current) {
-            setScheduleInView(entry.isIntersecting);
-          }
-        });
-      },
-      { threshold: 0.2 },
-    );
-
-    const jEl = journeySectionRef.current;
-    const sEl = scheduleSectionRef.current;
-    if (jEl) observer.observe(jEl);
-    if (sEl) observer.observe(sEl);
-
-    return () => {
-      if (jEl) observer.unobserve(jEl);
-      if (sEl) observer.unobserve(sEl);
-      observer.disconnect();
+    if (!newsletterModal) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setNewsletterModal(null);
     };
-  }, []);
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [newsletterModal]);
 
-  // Auto-looping Journey stages (resumes from current journeyIndex after manual selection)
+  // Auto-looping Journey stages
   useEffect(() => {
-    if (!journeyInView || journeyPaused) return;
+    if (journeyPaused) return;
     const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       setJourneyIndex((prevIndex) => (prevIndex + 1) % journey.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [journeyInView, journeyPaused, journeyIndex]);
+  }, [journeyPaused]);
 
-  // Container-only horizontal tab scrolling
+  // Container horizontal tab scrolling
   useEffect(() => {
     const container = tabsContainerRef.current;
     const activeTab = tabRefs.current[journeyIndex];
@@ -272,152 +254,143 @@ export function LandingPage() {
       const scrollTarget = tabLeft - containerWidth / 2 + tabWidth / 2;
       container.scrollTo({
         left: Math.max(0, scrollTarget),
-        behavior: 'smooth',
+        behavior: window.matchMedia('(hover: hover) and (pointer: fine)').matches
+          ? 'smooth'
+          : 'auto',
       });
     }
   }, [journeyIndex]);
 
-  // Auto-moving Schedule Carousel (resumes from current scheduleIndex after manual scroll)
+  // Auto-moving Schedule Carousel
   useEffect(() => {
-    if (!scheduleInView || schedulePaused) return;
+    if (schedulePaused || scheduleShows.length < 2) return;
     const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       setScheduleIndex((prevIndex) => {
-        const nextIndex = (prevIndex + 1) % shows.length;
-        if (scheduleRowRef.current) {
-          const cardWidth = scheduleRowRef.current.children[0]?.clientWidth || 260;
-          scheduleRowRef.current.scrollTo({
-            left: nextIndex * (cardWidth + 16),
-            behavior: 'smooth',
-          });
-        }
+        const nextIndex = (prevIndex + 1) % scheduleShows.length;
+        scrollScheduleTo(nextIndex);
         return nextIndex;
       });
     }, 4000);
 
     return () => clearInterval(timer);
-  }, [scheduleInView, schedulePaused, scheduleIndex]);
+  }, [schedulePaused, scheduleShows.length]);
 
-  // Sync manual user scrolling on Schedule row to active scheduleIndex
-  const handleScheduleScroll = () => {
-    if (scheduleRowRef.current) {
-      const container = scheduleRowRef.current;
-      const cardWidth = container.children[0]?.clientWidth || 260;
-      const gap = 16;
-      const newIndex = Math.round(container.scrollLeft / (cardWidth + gap));
-      if (newIndex >= 0 && newIndex < shows.length && newIndex !== scheduleIndex) {
-        setScheduleIndex(newIndex);
-      }
+  function scrollScheduleTo(index: number) {
+    const container = scheduleRowRef.current;
+    const card = container?.children[index] as HTMLElement | undefined;
+    if (!container || !card) return;
+
+    const left = card.offsetLeft - container.offsetLeft;
+    const behavior = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+      ? 'smooth'
+      : 'auto';
+    container.scrollTo({ left, behavior });
+  }
+
+  function selectJourney(index: number) {
+    setJourneyIndex(index);
+    setJourneyPaused(false);
+  }
+
+  function handleJourneyPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.pointerType === 'mouse') return;
+    journeyPointerStartRef.current = event.clientX;
+    setJourneyPaused(true);
+  }
+
+  function handleJourneyPointerEnd(event: PointerEvent<HTMLDivElement>) {
+    const start = journeyPointerStartRef.current;
+    journeyPointerStartRef.current = null;
+    setJourneyPaused(false);
+    if (start === null) return;
+
+    const distance = event.clientX - start;
+    if (Math.abs(distance) >= 40) {
+      setJourneyIndex(
+        (current) => (current + (distance < 0 ? 1 : -1) + journey.length) % journey.length,
+      );
     }
+  }
+
+  function pauseForMouse(event: PointerEvent<HTMLElement>, paused: boolean) {
+    if (event.pointerType === 'mouse') {
+      if (event.currentTarget === journeySectionRef.current) setJourneyPaused(paused);
+      if (event.currentTarget === scheduleSectionRef.current) setSchedulePaused(paused);
+    }
+  }
+
+  const handleScheduleScroll = () => {
+    const container = scheduleRowRef.current;
+    if (!container) return;
+
+    const containerCenter = container.scrollLeft + container.clientWidth / 2;
+    const cards = Array.from(container.children) as HTMLElement[];
+    if (!cards.length) return;
+    const newIndex = cards.reduce((closestIndex, card, index) => {
+      const closest = cards[closestIndex] ?? card;
+      const cardDistance = Math.abs(card.offsetLeft + card.clientWidth / 2 - containerCenter);
+      const closestDistance = Math.abs(
+        closest.offsetLeft + closest.clientWidth / 2 - containerCenter,
+      );
+      return cardDistance < closestDistance ? index : closestIndex;
+    }, 0);
+
+    if (newIndex !== scheduleIndex) setScheduleIndex(newIndex);
   };
 
-  function subscribe(event: FormEvent<HTMLFormElement>) {
+  async function subscribe(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (newsletterSubmitting) return;
+
     const data = new FormData(event.currentTarget);
     const email = String(data.get('email') ?? '').trim();
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      setNewsletterStatus('Enter a valid email address.');
+    setNewsletterSubmitting(true);
+    const result = await subscribeToNewsletterAction({ email });
+    setNewsletterSubmitting(false);
+    if (!result.ok) {
+      setNewsletterModal({ kind: 'error', message: result.error });
       return;
     }
-    setNewsletterStatus('You’re on the list. Watch your inbox for competition news.');
-    event.currentTarget.reset();
+
+    setNewsletterModal({
+      kind: result.data.status === 'already_registered' ? 'already_registered' : 'success',
+      message: result.data.message,
+    });
+    if (result.data.status === 'confirmation_sent') event.currentTarget.reset();
   }
 
   return (
     <main id="main">
-      <header className="site-header-wrapper">
-        <div className="site-header container-content">
-          <Brand />
-          <nav className="desktop-nav" aria-label="Main navigation">
-            <Link href="#journey" className="active-nav">
-              COMPETITION
-            </Link>
-            <Link href="#eligibility">ARTISTS</Link>
-            <Link href="#schedule">EVENTS</Link>
-            <Link href="#judges">JUDGES</Link>
-          </nav>
-          <div className="header-actions">
-            <Link href="#schedule" className="button button-secondary button-header">
-              GET TICKETS
-            </Link>
-            <ButtonLink href="/apply">APPLY NOW</ButtonLink>
-          </div>
-          <button
-            className="menu-button"
-            type="button"
-            aria-label="Toggle menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            {menuOpen ? <X /> : <Menu />}
-          </button>
-          {menuOpen && (
-            <nav className="mobile-nav" aria-label="Mobile navigation">
-              <Link onClick={() => setMenuOpen(false)} href="#journey">
-                COMPETITION
-              </Link>
-              <Link onClick={() => setMenuOpen(false)} href="#eligibility">
-                ARTISTS
-              </Link>
-              <Link onClick={() => setMenuOpen(false)} href="#schedule">
-                EVENTS
-              </Link>
-              <Link onClick={() => setMenuOpen(false)} href="#judges">
-                JUDGES
-              </Link>
-              <div className="mobile-nav-buttons">
-                <ButtonLink href="/apply">APPLY NOW</ButtonLink>
-                <Link
-                  onClick={() => setMenuOpen(false)}
-                  href="#schedule"
-                  className="button button-secondary"
-                >
-                  GET TICKETS
-                </Link>
-              </div>
-            </nav>
-          )}
-        </div>
-      </header>
+      <SiteHeader isHome={true} />
 
-      <section className="hero" id="top">
-        <Image
-          src={image('image0_4_4.png')}
-          alt="A crowd watching a large outdoor concert stage"
-          fill
-          priority
-          unoptimized
-          style={{ objectFit: 'cover', objectPosition: 'center 40%' }}
-        />
-        <div className="hero-scrim" />
-        <div className="hero-content container-content">
-          <span className="hero-kicker">ONTARIO&apos;S EMERGING COUNTRY ARTISTS</span>
-          <h1>
-            THE NEXT GREAT
-            <br />
-            CANADIAN COUNTRY STAR
-          </h1>
-          <p>Four qualifying shows. Four finalists. One artist takes the crown.</p>
-          <div className="hero-date">
-            <span className="date-item">
-              <CalendarDays aria-hidden="true" /> JANUARY 9 – FEBRUARY 6, 2027
+      {announcement && (
+        <aside
+          className={`homepage-announcement homepage-announcement-${announcement.severity}`}
+          aria-label="Competition announcement"
+        >
+          <div className="container-content homepage-announcement-inner">
+            <span className="homepage-announcement-icon" aria-hidden="true">
+              <Megaphone />
             </span>
-            <span className="date-sep" aria-hidden="true">
-              |
-            </span>
-            <span className="date-item">
-              <MapPin aria-hidden="true" /> PETERBOROUGH, ONTARIO
-            </span>
+            <div className="homepage-announcement-copy">
+              <strong>{announcement.title}</strong>
+              <span>{announcement.body}</span>
+            </div>
+            {announcement.ctaLabel && announcement.ctaUrl && (
+              <Link href={announcement.ctaUrl} className="homepage-announcement-link">
+                {announcement.ctaLabel}
+              </Link>
+            )}
           </div>
-          <div className="hero-buttons">
-            <ButtonLink href="/apply">APPLY NOW</ButtonLink>
-            <ButtonLink href="#schedule" secondary>
-              GET TICKETS
-            </ButtonLink>
-          </div>
-        </div>
-      </section>
+        </aside>
+      )}
 
-      <section className="intro-section section-pad">
+      {/* 1. Stage-Specific Hero Section */}
+      <StageHero viewModel={viewModel} />
+
+      {/* 2. Competition Summary / Stats */}
+      <section className="intro-section section-pad" id="about">
         <div className="container-content intro-grid">
           <h2>
             THE SEARCH
@@ -446,14 +419,13 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* 3. Competition Journey Funnel */}
       <section
         className="section-pad surface"
         id="journey"
         ref={journeySectionRef}
-        onMouseEnter={() => setJourneyPaused(true)}
-        onMouseLeave={() => setJourneyPaused(false)}
-        onFocus={() => setJourneyPaused(true)}
-        onBlur={() => setJourneyPaused(false)}
+        onPointerEnter={(event) => pauseForMouse(event, true)}
+        onPointerLeave={(event) => pauseForMouse(event, false)}
       >
         <div className="container-content">
           <div className="section-intro">
@@ -463,7 +435,15 @@ export function LandingPage() {
               intense and rewarding.
             </p>
           </div>
-          <div className="journey-media">
+          <div
+            className="journey-media"
+            onPointerDown={handleJourneyPointerDown}
+            onPointerUp={handleJourneyPointerEnd}
+            onPointerCancel={() => {
+              journeyPointerStartRef.current = null;
+              setJourneyPaused(false);
+            }}
+          >
             <Image
               key={currentJourney.image}
               src={currentJourney.image}
@@ -484,51 +464,40 @@ export function LandingPage() {
             role="tablist"
             aria-label="Competition stages"
           >
-            {journey.map((stage, index) => (
+            {journey.map((item, index) => (
               <button
-                key={stage.label}
+                key={item.label}
                 ref={(el) => {
                   tabRefs.current[index] = el;
                 }}
                 role="tab"
                 aria-selected={journeyIndex === index}
                 className={journeyIndex === index ? 'active' : ''}
-                onClick={() => setJourneyIndex(index)}
+                onClick={() => selectJourney(index)}
+                onTouchEnd={(event) => {
+                  event.preventDefault();
+                  selectJourney(index);
+                }}
               >
                 <span>0{index + 1}</span>
-                {stage.label}
+                {item.label}
               </button>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="section-pad" id="eligibility">
-        <div className="container-content">
-          <div className="section-intro">
-            <h2>ELIGIBILITY CRITERIA</h2>
-            <p>
-              Ensure you meet all essential requirements before beginning your application process.
-            </p>
-          </div>
-          <div className="card-grid eligibility-grid">
-            {eligibility.map((item) => {
-              const Icon = item.icon;
-              return (
-                <article className="info-card" key={item.title}>
-                  <Icon aria-hidden="true" className="card-icon" />
-                  <div className="card-title-line">
-                    <h3>{item.title}</h3>
-                    {'badge' in item && <span className="pill-badge">{item.badge}</span>}
-                  </div>
-                  <p>{item.copy}</p>
-                </article>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      {/* 4. Stage-Specific Content Block (Eligibility / Voting / Anticipation / Finalists) */}
+      <div id="artists">
+        <LandingStageRenderer
+          viewModel={viewModel}
+          onSelectArtist={onSelectArtist}
+          onVoteSubmit={onVoteSubmit}
+          onCastVoteClick={onCastVoteClick}
+        />
+      </div>
 
+      {/* 5. Prize Package */}
       <section className="section-pad prize-section surface" id="prize">
         <div className="container-content">
           <div className="section-intro">
@@ -567,32 +536,10 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="image-cta apply-cta">
-        <Image
-          src={image('image4_4_4.jpg')}
-          alt="A vocalist recording in a professional studio"
-          fill
-          unoptimized
-          style={{ objectFit: 'cover' }}
-        />
-        <div className="image-cta-scrim" />
-        <div className="image-cta-content">
-          <h2>
-            THINK YOU&apos;VE GOT
-            <br />
-            WHAT IT TAKES?
-          </h2>
-          <p>
-            We are looking for original voices, authentic songwriting, and undeniable stage
-            presence.
-            <br />
-            <br />
-            Submit your best work to be considered for the competition.
-          </p>
-          <ButtonLink href="/apply">APPLY TO COMPETE</ButtonLink>
-        </div>
-      </section>
+      {/* 6. Stage-Specific Middle/Closing Call to Action */}
+      <StageClosingCta stage={viewModel.stage} />
 
+      {/* 7. Judges */}
       <section className="section-pad" id="judges">
         <div className="container-content">
           <div className="section-intro">
@@ -602,51 +549,67 @@ export function LandingPage() {
               artists and select the ultimate winner.
             </p>
           </div>
-          <div className="judges-grid">
-            {judges.map((judge) => (
-              <article className="judge-card" key={judge.name}>
-                <div className="judge-image">
-                  <Image
-                    src={judge.image}
-                    alt={judge.name}
-                    fill
-                    unoptimized
-                    style={{ objectFit: 'cover' }}
-                  />
-                </div>
-                <h3>{judge.name}</h3>
-                <span className="judge-role">{judge.role}</span>
-                <p>{judge.copy}</p>
-              </article>
-            ))}
-          </div>
+          {displayedJudges.length ? (
+            <div className="judges-grid">
+              {displayedJudges.map((judge) => (
+                <article className="judge-card" key={judge.id}>
+                  <div className="judge-image">
+                    {judge.image ? (
+                      <Image
+                        src={judge.image}
+                        alt={judge.name}
+                        fill
+                        unoptimized
+                        style={{ objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <span>{judge.name.slice(0, 2).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <h3>{judge.name}</h3>
+                  <span className="judge-role">{judge.role}</span>
+                  <p>{judge.copy}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center font-semibold text-neutral-600">
+              Judges will be announced soon.
+            </p>
+          )}
         </div>
       </section>
 
+      {/* 8. The Road to the Crown (Schedule) */}
       <section
         className="section-pad surface"
         id="schedule"
         ref={scheduleSectionRef}
-        onMouseEnter={() => setSchedulePaused(true)}
-        onMouseLeave={() => setSchedulePaused(false)}
-        onFocus={() => setSchedulePaused(true)}
-        onBlur={() => setSchedulePaused(false)}
+        onPointerEnter={(event) => pauseForMouse(event, true)}
+        onPointerLeave={(event) => pauseForMouse(event, false)}
       >
         <div className="container-content">
           <div className="section-intro">
             <h2>THE ROAD TO THE CROWN</h2>
+            <p>Five live shows in Peterborough. All dates subject to standard event scheduling.</p>
           </div>
           <div
             className="schedule-row no-scrollbar"
             ref={scheduleRowRef}
             onScroll={handleScheduleScroll}
           >
-            {shows.map((show) => (
+            {scheduleShows.map((show) => (
               <article className={show.final ? 'show-card final-show' : 'show-card'} key={show.n}>
                 <span className="show-type">{show.subtitle}</span>
                 <h3>{show.date}</h3>
+                {(show.venueName || show.venueAddress) && (
+                  <p className="show-venue">
+                    <strong>{show.venueName ?? 'Venue TBD'}</strong>
+                    {show.venueAddress && <span>{show.venueAddress}</span>}
+                  </p>
+                )}
                 <p>{show.copy}</p>
-                <Link href="#newsletter" className="show-btn">
+                <Link href={show.ticketUrl || '#newsletter'} className="show-btn">
                   {show.btn}
                 </Link>
               </article>
@@ -655,6 +618,7 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* 9. Newsletter Email Signup */}
       <section className="newsletter section-pad" id="newsletter">
         <div className="newsletter-inner">
           <h2>DON&apos;T MISS THE NEXT BIG COUNTRY STAR</h2>
@@ -674,17 +638,60 @@ export function LandingPage() {
                 autoComplete="email"
                 placeholder="Enter your email address"
               />
-              <button className="button button-primary" type="submit">
-                SUBSCRIBE
+              <button
+                className="button button-primary"
+                type="submit"
+                disabled={newsletterSubmitting}
+              >
+                {newsletterSubmitting ? 'SUBMITTING...' : 'SUBSCRIBE'}
               </button>
             </div>
-            <p className="form-status" role="status">
-              {newsletterStatus}
-            </p>
           </form>
         </div>
       </section>
 
+      {newsletterModal && (
+        <div
+          className="newsletter-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="newsletter-modal-title"
+          onClick={() => setNewsletterModal(null)}
+        >
+          <div className="newsletter-modal" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="newsletter-modal-close"
+              aria-label="Close newsletter message"
+              onClick={() => setNewsletterModal(null)}
+            >
+              <X aria-hidden="true" />
+            </button>
+            <div className={`newsletter-modal-icon newsletter-modal-icon-${newsletterModal.kind}`}>
+              {newsletterModal.kind === 'success' && <CheckCircle2 aria-hidden="true" />}
+              {newsletterModal.kind === 'already_registered' && <Mail aria-hidden="true" />}
+              {newsletterModal.kind === 'error' && <AlertCircle aria-hidden="true" />}
+            </div>
+            <h2 id="newsletter-modal-title">
+              {newsletterModal.kind === 'success'
+                ? 'YOU’RE REGISTERED'
+                : newsletterModal.kind === 'already_registered'
+                  ? 'ALREADY REGISTERED'
+                  : 'SIGNUP FAILED'}
+            </h2>
+            <p>{newsletterModal.message}</p>
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={() => setNewsletterModal(null)}
+            >
+              GOT IT
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 10. Closing Image Banner */}
       <section className="image-cta closing-cta">
         <Image
           src={image('image9_4_4.png')}
@@ -701,36 +708,59 @@ export function LandingPage() {
             STAR IS WAITING
           </h2>
           <div className="hero-buttons">
-            <ButtonLink href="/apply">APPLY NOW</ButtonLink>
-            <ButtonLink href="#schedule" secondary>
-              GET TICKETS
-            </ButtonLink>
+            <ButtonLink href={viewModel.primaryCta.href}>{viewModel.primaryCta.label}</ButtonLink>
+            {viewModel.primaryCta.secondaryLabel && viewModel.primaryCta.secondaryHref && (
+              <ButtonLink href={viewModel.primaryCta.secondaryHref} secondary>
+                {viewModel.primaryCta.secondaryLabel}
+              </ButtonLink>
+            )}
           </div>
         </div>
       </section>
 
+      {/* 11. Partners / Sponsors Marquee */}
       <section className="partners">
         <span>OFFICIAL PARTNERS</span>
         <div className="marquee-container no-scrollbar">
           <div className="marquee-track">
             {[...Array(3)].map((_, setIdx) => (
               <div className="marquee-group" key={setIdx}>
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Image
-                    key={`${setIdx}-${i}`}
-                    src={image('image10_4_4.png')}
-                    width={160}
-                    height={36}
-                    unoptimized
-                    alt="Official Partner"
-                  />
-                ))}
+                {sponsors?.length ? (
+                  sponsors.map((sponsor) => {
+                    const sponsorLogo = sponsor.logoUrl ? (
+                      <Image
+                        src={sponsor.logoUrl}
+                        width={160}
+                        height={36}
+                        unoptimized
+                        alt={sponsor.name}
+                      />
+                    ) : (
+                      <strong>{sponsor.name}</strong>
+                    );
+                    return sponsor.websiteUrl ? (
+                      <a
+                        key={`${setIdx}-${sponsor.id}`}
+                        href={sponsor.websiteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {sponsorLogo}
+                      </a>
+                    ) : (
+                      <span key={`${setIdx}-${sponsor.id}`}>{sponsorLogo}</span>
+                    );
+                  })
+                ) : (
+                  <span>PARTNERS TO BE ANNOUNCED</span>
+                )}
               </div>
             ))}
           </div>
         </div>
       </section>
 
+      {/* 12. Footer */}
       <footer>
         <div className="container-content footer-top">
           <div className="footer-brand">

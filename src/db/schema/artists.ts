@@ -9,7 +9,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
-import { actTypeEnum, applicationStatusEnum } from './enums';
+import { actTypeEnum, applicationStatusEnum, artistProfileStatusEnum } from './enums';
 
 /**
  * Artist profiles (§4.2).
@@ -29,7 +29,7 @@ export const artists = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
 
     // ---------------------------------------------------------------------
-    // PUBLIC — safe to render on a public profile
+    // PUBLIC: safe to render on a public profile
     // ---------------------------------------------------------------------
     actName: text('act_name').notNull(),
     slug: text('slug').notNull(),
@@ -48,15 +48,16 @@ export const artists = pgTable(
     /** Validated against an https: host allowlist before storage. */
     websiteUrl: text('website_url'),
     performanceVideoUrl: text('performance_video_url'),
+    performanceVideoUrls: jsonb('performance_video_urls').$type<string[]>().default([]).notNull(),
     socialLinks: jsonb('social_links').$type<Record<string, string>>().default({}).notNull(),
     musicLinks: jsonb('music_links').$type<Record<string, string>>().default({}).notNull(),
 
-    /** Only true once an admin approves. Gates public visibility. */
-    isPublished: boolean('is_published').notNull().default(false),
+    /** Approval and public visibility are separate decisions. */
+    profileStatus: artistProfileStatusEnum('profile_status').notNull().default('hidden'),
     publishedAt: timestamp('published_at', { withTimezone: true }),
 
     // ---------------------------------------------------------------------
-    // PRIVATE — never selected by a public query
+    // PRIVATE: never selected by a public query
     // ---------------------------------------------------------------------
     contactEmail: text('contact_email'),
     contactPhone: text('contact_phone'),
@@ -69,8 +70,8 @@ export const artists = pgTable(
   },
   (table) => [
     uniqueIndex('artists_slug_idx').on(table.slug),
-    index('artists_user_id_idx').on(table.userId),
-    index('artists_published_idx').on(table.isPublished),
+    uniqueIndex('artists_user_id_idx').on(table.userId),
+    index('artists_profile_status_idx').on(table.profileStatus),
     index('artists_location_idx').on(table.locationCity),
   ],
 );
@@ -89,7 +90,6 @@ export const applications = pgTable(
       .references(() => artists.id, { onDelete: 'cascade' }),
 
     status: applicationStatusEnum('status').notNull().default('draft'),
-
     /** Which step the artist reached, so a resumed draft returns them there. */
     currentStep: integer('current_step').notNull().default(1),
 
@@ -110,7 +110,7 @@ export const applications = pgTable(
     previousCompetitionDetails: text('previous_competition_details'),
 
     // ---------------------------------------------------------------------
-    // Availability (§4.1) — a hard gate. Artists do not know which date they
+    // Availability (§4.1) is a hard gate. Artists do not know which date they
     // will be assigned, so they must confirm all five.
     // ---------------------------------------------------------------------
     availableAllDates: boolean('available_all_dates'),
@@ -127,7 +127,7 @@ export const applications = pgTable(
     submittedAt: timestamp('submitted_at', { withTimezone: true }),
 
     // ---------------------------------------------------------------------
-    // Admin review — PRIVATE. Never exposed to the artist or the public.
+    // Admin review. PRIVATE: never exposed to the artist or the public.
     // ---------------------------------------------------------------------
     reviewNotes: text('review_notes'),
     rejectionReason: text('rejection_reason'),
@@ -138,7 +138,7 @@ export const applications = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('applications_artist_id_idx').on(table.artistId),
+    uniqueIndex('applications_artist_id_idx').on(table.artistId),
     index('applications_status_idx').on(table.status),
     index('applications_submitted_at_idx').on(table.submittedAt),
   ],

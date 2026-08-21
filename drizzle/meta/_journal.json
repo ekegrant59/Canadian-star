@@ -15,6 +15,62 @@
       "when": 1786555679703,
       "tag": "0001_audit_log_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786725583009,
+      "tag": "0002_flippant_princess_powerful",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786811743232,
+      "tag": "0003_unknown_jigsaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787050800000,
+      "tag": "0004_real_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787086143942,
+      "tag": "0005_voting_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787090551925,
+      "tag": "0006_fast_tiger_shark",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787249593350,
+      "tag": "0007_cheerful_fantastic_four",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787250336755,
+      "tag": "0008_remarkable_doctor_doom",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787251000000,
+      "tag": "0009_otp_resend_backoff",
+      "breakpoints": true
     }
   ]
 }

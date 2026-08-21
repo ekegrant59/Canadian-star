@@ -77,6 +77,19 @@ export const FORMAT = {
 } as const;
 
 /**
+ * Minimum applicant age.
+ *
+ * §4.1 leaves this formally undecided and docs/hellion-questions.md carries it
+ * as a blocking question. This build assumes 18+, which is what the sign-up and
+ * eligibility screens attest to.
+ *
+ * IF THE CLIENT LOWERS THIS, code changes are not enough: collecting a minor's
+ * data triggers parental consent handling and changes what may be published on
+ * a public profile. Treat a change here as the start of that work, not the end.
+ */
+export const AGE_MINIMUM = 18;
+
+/**
  * Feature flags. Defaults here; the `settings` table overrides at runtime so
  * the client can flip them from admin without a deploy.
  *
@@ -88,7 +101,7 @@ export const FORMAT = {
 export const FEATURE_FLAG_DEFAULTS = {
   COMING_SOON_MODE: true,
   APPLICATIONS_OPEN: false,
-  VOTING_OPEN: false,
+  VOTING_OPEN: true,
   LIVE_VOTING_OPEN: false,
   TIP_JAR_ENABLED: false,
   RESULTS_PUBLISHED: false,
@@ -96,6 +109,15 @@ export const FEATURE_FLAG_DEFAULTS = {
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAG_DEFAULTS;
+
+export const COMPETITION_STAGES = [
+  { key: 'applications', label: 'Phase 01: Applications' },
+  { key: 'voting', label: 'Phase 02: Fan Voting' },
+  { key: 'anticipation', label: 'Phase 03: Anticipation' },
+  { key: 'finalists', label: 'Phase 04: Finalists' },
+] as const;
+
+export type CompetitionStage = (typeof COMPETITION_STAGES)[number]['key'];
 
 /**
  * Scoring component weights (§7). Seeded into `scoring_weights`, which is the

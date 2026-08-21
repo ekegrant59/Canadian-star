@@ -126,6 +126,29 @@ export const contentBlocks = pgTable(
   (table) => [uniqueIndex('content_blocks_key_idx').on(table.key)],
 );
 
+/** Scheduled public banner for urgent or time-sensitive homepage messages. */
+export const homepageAnnouncements = pgTable(
+  'homepage_announcements',
+  {
+    id: text('id').primaryKey(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    ctaLabel: text('cta_label'),
+    ctaUrl: text('cta_url'),
+    severity: text('severity').notNull().default('info'),
+    published: boolean('published').notNull().default(false),
+    startsAt: timestamp('starts_at', { withTimezone: true }),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
+    updatedBy: text('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('homepage_announcements_published_idx').on(table.published),
+    index('homepage_announcements_window_idx').on(table.startsAt, table.endsAt),
+  ],
+);
+
 /**
  * Runtime settings and feature flags. Overrides the defaults in
  * src/config/event.ts so the client can flip a flag from admin without a deploy.

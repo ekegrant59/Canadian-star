@@ -60,19 +60,19 @@ docker compose up -d     # local Postgres (media is Cloudinary, no container)
 
 Complete. See the implementation plan for what each phase covers.
 
-| Area                                                | State                          |
-| --------------------------------------------------- | ------------------------------ |
-| Next 16 + TypeScript strict, exact version pins     | Done                           |
-| Docker Compose parity (Postgres)                    | Done                           |
-| Dockerfile, standalone output, non-root user        | Done                           |
-| 24-table Drizzle schema + migrations                | Done                           |
-| Vote uniqueness enforced by partial unique index    | Done, verified                 |
-| Append-only audit log and consent records           | Done, verified                 |
-| Better Auth, magic link, role guards                | Wired, needs Resend in Phase 3 |
-| Security headers, nonce CSP, CVE-2025-29927 defence | Done, verified                 |
-| Design tokens from the client comps                 | Done                           |
-| Component inventory at `/dev/components`            | Done, 404s in production       |
-| Email normalization + 15 unit tests                 | Done, passing                  |
+| Area                                                 | State                                        |
+| ---------------------------------------------------- | -------------------------------------------- |
+| Next 16 + TypeScript strict, exact version pins      | Done                                         |
+| Docker Compose parity (Postgres)                     | Done                                         |
+| Dockerfile, standalone output, non-root user         | Done                                         |
+| 24-table Drizzle schema + migrations                 | Done                                         |
+| Vote uniqueness enforced by partial unique index     | Done, verified                               |
+| Append-only audit log and consent records            | Done, verified                               |
+| Better Auth, OTP signup, password login, role guards | Wired, Brevo delivery required in production |
+| Security headers, nonce CSP, CVE-2025-29927 defence  | Done, verified                               |
+| Design tokens from the client comps                  | Done                                         |
+| Component inventory at `/dev/components`             | Done, 404s in production                     |
+| Email normalization + 15 unit tests                  | Done, passing                                |
 
 Not yet done, by design: Coolify deployment (needs VPS access), font files
 (not yet supplied), and everything in Phases 2 to 6.

@@ -17,7 +17,7 @@ import { consentTypeEnum, voteRoundEnum } from './enums';
  * Votes (§4.3). One verified email equals one vote.
  *
  * The uniqueness guarantee is the partial unique index below, NOT application
- * logic. A check-then-insert race under load is exactly how double votes get
+ * logic. Under load, a check-then-insert race is how double votes get
  * through, and this competition's credibility is the product.
  *
  * Only `verified` votes are ever counted in a published tally.
@@ -51,18 +51,35 @@ export const votes = pgTable(
     /**
      * SHA-256 of the verification token. Never store the plaintext: database
      * read access would otherwise let an attacker verify votes at will.
-     * Single-use, 24 hour expiry.
+     * Single-use, short expiry.
      */
     verificationTokenHash: text('verification_token_hash'),
     verificationExpiresAt: timestamp('verification_expires_at', { withTimezone: true }),
 
     /** SHA-256 with a server-side pepper. Raw IP retention is a PIPEDA problem. */
     ipHash: text('ip_hash'),
+    /** Hashed network prefix (/24 IPv4 or /64 IPv6), used only as weak context. */
+    ipPrefixHash: text('ip_prefix_hash'),
     userAgentHash: text('user_agent_hash'),
+    /** First-party browser identifier, hashed with the server pepper. Signal only, never identity. */
+    deviceHash: text('device_hash'),
+
+    /** OTP brute-force guard. Reset whenever a new code is issued. */
+    verificationAttempts: integer('verification_attempts').notNull().default(0),
+    /** Last OTP issue time, used for an atomic resend cooldown. */
+    verificationSentAt: timestamp('verification_sent_at', { withTimezone: true }),
+    /** Number of resend requests for this pending vote; drives backoff. */
+    verificationResendCount: integer('verification_resend_count').notNull().default(0),
 
     /** 0-100. Computed by src/lib/voting/fraud.ts on write. */
     fraudScore: integer('fraud_score').notNull().default(0),
     fraudSignals: text('fraud_signals'),
+
+    /** Manual review preserves the original score/signals for auditability. */
+    reviewDecision: text('review_decision').notNull().default('pending'),
+    reviewNotes: text('review_notes'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedBy: text('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
 
     /** Set by an admin when a vote is invalidated. Excluded from tallies. */
     invalidatedAt: timestamp('invalidated_at', { withTimezone: true }),
@@ -89,6 +106,8 @@ export const votes = pgTable(
     index('votes_verified_idx').on(table.verified),
     index('votes_created_at_idx').on(table.createdAt),
     index('votes_ip_hash_idx').on(table.ipHash),
+    index('votes_ip_prefix_hash_idx').on(table.ipPrefixHash),
+    index('votes_device_hash_idx').on(table.deviceHash),
     index('votes_fraud_score_idx').on(table.fraudScore),
   ],
 );
@@ -181,5 +200,11 @@ export const rateLimits = pgTable(
     windowStart: timestamp('window_start', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   },
-  (table) => [index('rate_limits_expires_at_idx').on(table.expiresAt)],
+  (table) => [
+    // Keep an explicitly named unique index in addition to the primary key.
+    // Some early environments were created before `key` became the primary
+    // key; ON CONFLICT needs a unique arbiter in those databases as well.
+    uniqueIndex('rate_limits_key_unique_idx').on(table.key),
+    index('rate_limits_expires_at_idx').on(table.expiresAt),
+  ],
 );

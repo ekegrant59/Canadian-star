@@ -3,15 +3,38 @@ import { pgEnum } from 'drizzle-orm/pg-core';
 /** Roles. Judge and admin sign-in is allowlist-only, never open registration. */
 export const userRoleEnum = pgEnum('user_role', ['artist', 'judge', 'industry_reviewer', 'admin']);
 
+/** Fine-grained permissions for administrator accounts. */
+export const adminAccessLevelEnum = pgEnum('admin_access_level', [
+  'super',
+  'read_write',
+  'read_only',
+]);
+
 /** Application lifecycle (§4.2 through §4.5). */
 export const applicationStatusEnum = pgEnum('application_status', [
   'draft',
   'submitted',
   'under_review',
+  'approved',
   'shortlisted',
   'finalist',
   'rejected',
   'withdrawn',
+]);
+
+/** Public artist profile visibility, independent from application review. */
+export const artistProfileStatusEnum = pgEnum('artist_profile_status', [
+  'hidden',
+  'published',
+  'archived',
+]);
+
+/** Campaign phase shown on the landing page and artist portal. */
+export const competitionStageEnum = pgEnum('competition_stage', [
+  'applications',
+  'voting',
+  'anticipation',
+  'finalists',
 ]);
 
 /** §18: both solo artists and bands may apply. */

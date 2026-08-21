@@ -63,8 +63,8 @@ function buildCsp(isDev: boolean, isSecure: boolean): string {
     // upload endpoint must be reachable. The exact host, never a wildcard.
     `connect-src 'self' https://api.cloudinary.com`,
 
-    // Video embeds are allowlisted per host in Phase 4, never wildcarded.
-    `frame-src 'self'`,
+    // Submitted media is embedded only from the providers accepted by URL validation.
+    `frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com`,
 
     `object-src 'none'`,
     `base-uri 'self'`,

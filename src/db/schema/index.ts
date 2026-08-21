@@ -5,3 +5,4 @@ export * from './shows';
 export * from './voting';
 export * from './scoring';
 export * from './content';
+export * from './competition';

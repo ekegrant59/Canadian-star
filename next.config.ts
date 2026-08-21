@@ -1,6 +1,11 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // Allow phones and tablets on the local network to load dev-only HMR and
+  // JavaScript resources. Without this, the HTML renders but the page never
+  // hydrates, so interactive controls fall back to native browser behavior.
+  allowedDevOrigins: ['192.168.1.4', 'http://192.168.1.4:3000'],
+
   // Required for the Docker image on Coolify. Produces .next/standalone.
   output: 'standalone',
 
@@ -30,15 +35,21 @@ const nextConfig: NextConfig = {
     // res.cloudinary.com is shared by every Cloudinary account, so the path is
     // pinned to this cloud name. With /** any account's assets would proxy
     // through our optimizer at our expense.
-    remotePatterns: process.env.CLOUDINARY_CLOUD_NAME
-      ? [
-          {
-            protocol: 'https' as const,
-            hostname: 'res.cloudinary.com',
-            pathname: `/${process.env.CLOUDINARY_CLOUD_NAME}/**`,
-          },
-        ]
-      : [],
+    remotePatterns: [
+      ...(process.env.CLOUDINARY_CLOUD_NAME
+        ? [
+            {
+              protocol: 'https' as const,
+              hostname: 'res.cloudinary.com',
+              pathname: `/${process.env.CLOUDINARY_CLOUD_NAME}/**`,
+            },
+          ]
+        : []),
+      {
+        protocol: 'https' as const,
+        hostname: 'images.unsplash.com',
+      },
+    ],
     formats: ['image/avif', 'image/webp'],
   },
 

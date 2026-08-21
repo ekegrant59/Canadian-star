@@ -9,6 +9,8 @@
 export const ROLES = ['artist', 'judge', 'industry_reviewer', 'admin'] as const;
 
 export type Role = (typeof ROLES)[number];
+export const ADMIN_ACCESS_LEVELS = ['super', 'read_write', 'read_only'] as const;
+export type AdminAccessLevel = (typeof ADMIN_ACCESS_LEVELS)[number];
 
 /**
  * Roles that satisfy a given requirement. Admin satisfies everything; the other
@@ -49,4 +51,12 @@ export const REQUIRES_TWO_FACTOR: readonly Role[] = ['admin'];
 
 export function requiresTwoFactor(role: Role): boolean {
   return REQUIRES_TWO_FACTOR.includes(role);
+}
+
+export function adminCanWrite(accessLevel: AdminAccessLevel): boolean {
+  return accessLevel === 'super' || accessLevel === 'read_write';
+}
+
+export function adminCanManageAdmins(accessLevel: AdminAccessLevel): boolean {
+  return accessLevel === 'super';
 }

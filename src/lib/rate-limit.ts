@@ -34,9 +34,15 @@ export type RateLimitRule = {
  * sign-in, verification resend.
  */
 export const RATE_LIMITS = {
-  'vote:ip': { limit: 5, windowSeconds: 3600 },
-  'vote:ip:daily': { limit: 20, windowSeconds: 86_400 },
+  // Network limits are intentionally broad because homes, offices, venues,
+  // campuses, and mobile carrier NAT commonly share one public IP.
+  'vote:ip': { limit: 20, windowSeconds: 3600 },
+  'vote:ip:daily': { limit: 80, windowSeconds: 86_400 },
   'vote:email': { limit: 3, windowSeconds: 3600 },
+  'vote:device': { limit: 8, windowSeconds: 3600 },
+  'vote:artist': { limit: 300, windowSeconds: 3600 },
+  'vote:verify:ip': { limit: 30, windowSeconds: 3600 },
+  'vote:verify:email': { limit: 10, windowSeconds: 3600 },
   'signin:ip': { limit: 10, windowSeconds: 3600 },
   'signin:email': { limit: 5, windowSeconds: 3600 },
   'verify:resend': { limit: 3, windowSeconds: 3600 },

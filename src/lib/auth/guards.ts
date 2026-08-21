@@ -1,10 +1,18 @@
 import 'server-only';
 
 import { headers } from 'next/headers';
-import { redirect, forbidden } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { auth } from './index';
-import { roleSatisfies, requiresTwoFactor, type Role } from './roles';
+import {
+  ROLE_HOME,
+  roleSatisfies,
+  requiresTwoFactor,
+  adminCanManageAdmins,
+  adminCanWrite,
+  type AdminAccessLevel,
+  type Role,
+} from './roles';
 
 /**
  * Authorization. THIS is the security boundary, not proxy.ts.
@@ -26,6 +34,7 @@ export type AuthedUser = {
   name: string | null;
   role: Role;
   twoFactorEnabled: boolean;
+  adminAccessLevel: AdminAccessLevel;
 };
 
 /**
@@ -50,6 +59,7 @@ export async function getCurrentUser(): Promise<AuthedUser | null> {
     emailCanonical?: string;
     name?: string | null;
     role?: Role;
+    adminAccessLevel?: AdminAccessLevel;
     twoFactorEnabled?: boolean;
     bannedAt?: Date | null;
   };
@@ -64,6 +74,7 @@ export async function getCurrentUser(): Promise<AuthedUser | null> {
     name: user.name ?? null,
     role: user.role ?? 'artist',
     twoFactorEnabled: user.twoFactorEnabled ?? false,
+    adminAccessLevel: user.adminAccessLevel ?? 'super',
   };
 }
 
@@ -71,11 +82,11 @@ export async function getCurrentUser(): Promise<AuthedUser | null> {
  * Requires a signed-in user. Redirects to sign-in when absent.
  *
  * Use in pages. In Server Actions prefer requireUserOrThrow so the caller gets
- * a result rather than a redirect.
+ * a result instead of a redirect.
  */
 export async function requireAuth(): Promise<AuthedUser> {
   const user = await getCurrentUser();
-  if (!user) redirect('/signin');
+  if (!user) redirect('/login');
   return user;
 }
 
@@ -87,16 +98,21 @@ export async function requireAuth(): Promise<AuthedUser> {
  * optional.
  */
 export async function requireRole(required: Role): Promise<AuthedUser> {
-  const user = await requireAuth();
+  const user = await getCurrentUser();
+  if (!user) redirect(required === 'admin' ? '/admin/login' : '/login');
 
   if (!roleSatisfies(user.role, required)) {
-    // 403 rather than a redirect: the user is authenticated and simply not
-    // permitted, and a redirect would leak that the route exists.
-    forbidden();
+    // Keep protected dashboards on their role home. Next's experimental
+    // forbidden() helper is intentionally avoided so this works without
+    // enabling experimental.authInterrupts in every deployment.
+    // An authenticated artist/judge/reviewer may still need to switch into a
+    // separately provisioned admin account. Send them to the admin portal
+    // login instead of trapping them on their current role dashboard.
+    redirect(required === 'admin' ? '/admin/login' : ROLE_HOME[user.role]);
   }
 
   if (requiresTwoFactor(user.role) && !user.twoFactorEnabled) {
-    redirect('/admin/security/two-factor');
+    redirect('/admin/login/setup-2fa');
   }
 
   return user;
@@ -124,5 +140,17 @@ export async function requireRoleOrThrow(required: Role): Promise<AuthedUser> {
   if (requiresTwoFactor(user.role) && !user.twoFactorEnabled) {
     throw new AuthorizationError('forbidden');
   }
+  return user;
+}
+
+export async function requireAdminWriteOrThrow(): Promise<AuthedUser> {
+  const user = await requireRoleOrThrow('admin');
+  if (!adminCanWrite(user.adminAccessLevel)) throw new AuthorizationError('forbidden');
+  return user;
+}
+
+export async function requireSuperAdminOrThrow(): Promise<AuthedUser> {
+  const user = await requireRoleOrThrow('admin');
+  if (!adminCanManageAdmins(user.adminAccessLevel)) throw new AuthorizationError('forbidden');
   return user;
 }

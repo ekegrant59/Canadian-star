@@ -1,5 +1,13 @@
-import { pgTable, text, timestamp, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core';
-import { userRoleEnum } from './enums';
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  integer,
+  uniqueIndex,
+  index,
+} from 'drizzle-orm/pg-core';
+import { adminAccessLevelEnum, userRoleEnum } from './enums';
 
 /**
  * Users. Better Auth owns the core columns; `role`, `emailCanonical`, and the
@@ -28,6 +36,13 @@ export const users = pgTable(
     image: text('image'),
 
     role: userRoleEnum('role').notNull().default('artist'),
+
+    /** Applies when role=admin. Legacy admins default to full control. */
+    adminAccessLevel: adminAccessLevelEnum('admin_access_level').notNull().default('super'),
+    adminInvitationTokenHash: text('admin_invitation_token_hash'),
+    adminInvitationExpiresAt: timestamp('admin_invitation_expires_at', { withTimezone: true }),
+    adminInvitedAt: timestamp('admin_invited_at', { withTimezone: true }),
+    adminPasswordSetAt: timestamp('admin_password_set_at', { withTimezone: true }),
 
     /** TOTP 2FA is mandatory for admin accounts (enforced in the auth layer). */
     twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
@@ -101,13 +116,7 @@ export const accounts = pgTable(
   ],
 );
 
-/**
- * Magic link and email verification tokens.
- *
- * Better Auth hashes these before storage. Single-use, short expiry (15 minutes
- * for sign-in), invalidated on use. A plaintext token here means database read
- * access equals account takeover.
- */
+/** Better Auth verification and password-reset tokens. */
 export const verifications = pgTable(
   'verifications',
   {
@@ -134,6 +143,9 @@ export const twoFactors = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     secret: text('secret').notNull(),
     backupCodes: text('backup_codes').notNull(),
+    verified: boolean('verified').notNull().default(false),
+    failedVerificationCount: integer('failed_verification_count').notNull().default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
   },
   (table) => [index('two_factors_user_id_idx').on(table.userId)],
 );

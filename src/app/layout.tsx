@@ -18,9 +18,8 @@ export const metadata: Metadata = {
     siteName: EVENT.name,
   },
   robots: {
-    // Flipped on for real once the domain and event name are confirmed (§17).
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
   },
 };
 
