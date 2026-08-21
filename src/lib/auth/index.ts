@@ -30,6 +30,12 @@ import type { Role } from './roles';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
+  // Route handlers are imported while Next collects build-time metadata. The
+  // real secret is intentionally runtime-only in Coolify, so allow module
+  // evaluation during that phase without weakening runtime validation.
+  if (!value && process.env.NEXT_PHASE === 'phase-production-build') {
+    return 'build-only-secret-not-used-at-runtime';
+  }
   if (!value) throw new Error(`${name} is not set`);
   return value;
 }
