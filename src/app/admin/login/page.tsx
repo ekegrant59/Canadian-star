@@ -34,14 +34,11 @@ export default function AdminLoginPage() {
   return (
     <div className="flex min-h-screen flex-col justify-center bg-[#0e0e0e] px-4 py-12 text-[#e5e2e1] sm:px-6 lg:px-8">
       <div className="text-center sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-[#FF5C00]/30 bg-[#FF5C00]/10 shadow-lg">
-          <ShieldAlert className="h-7 w-7 text-[#FF5C00]" />
-        </div>
         <h1 className="text-2xl font-black tracking-tight text-white uppercase sm:text-3xl">
           Admin Portal Access
         </h1>
         <p className="mt-2 text-xs font-semibold tracking-wider text-gray-400 uppercase">
-          Operations Center • Restricted Personnel Only
+          Restricted Personnel Only
         </p>
       </div>
 
@@ -72,7 +69,7 @@ export default function AdminLoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-xl border border-[#333] bg-[#121212] py-2.5 pr-4 pl-10 text-xs text-white placeholder:text-gray-500 focus:border-[#FF5C00] focus:ring-2 focus:ring-[#FF5C00]/40 focus:outline-hidden"
-                  placeholder="name@canadianstar.ca"
+                  placeholder="name@example.ca"
                 />
               </div>
             </div>
@@ -93,7 +90,7 @@ export default function AdminLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-xl border border-[#333] bg-[#121212] py-2.5 pr-4 pl-10 text-xs text-white placeholder:text-gray-500 focus:border-[#FF5C00] focus:ring-2 focus:ring-[#FF5C00]/40 focus:outline-hidden"
-                  placeholder="Enter administrator password"
+                  placeholder="Enter password"
                 />
               </div>
             </div>
@@ -107,12 +104,6 @@ export default function AdminLoginPage() {
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
-
-          {/* Security Notice */}
-          <div className="mt-6 flex items-start gap-2.5 border-t border-[#262626] pt-6 text-xs leading-relaxed text-gray-400">
-            <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-            <span>Two-factor authentication is mandatory for administrator access.</span>
-          </div>
         </div>
 
         <div className="mt-6 text-center">
