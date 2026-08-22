@@ -29,6 +29,7 @@ const createSchema = z.object({
 const updateSchema = z.object({ userId: z.string().uuid(), accessLevel });
 const statusSchema = z.object({ userId: z.string().uuid(), active: z.boolean() });
 const resendSchema = z.object({ userId: z.string().uuid() });
+const deleteSchema = z.object({ userId: z.string().uuid() });
 const acceptSchema = z
   .object({
     token: z.string().min(32).max(500),
@@ -109,18 +110,16 @@ export async function createAdminUserAction(input: unknown) {
       .limit(1);
     if (existing) return actionError('An account already exists for this email address.');
     const userId = randomUUID();
-    await db
-      .insert(users)
-      .values({
-        id: userId,
-        email: normalized.raw,
-        emailRaw: normalized.raw,
-        emailCanonical: normalized.canonical,
-        emailVerified: false,
-        name: parsed.data.name,
-        role: 'admin',
-        adminAccessLevel: parsed.data.accessLevel,
-      });
+    await db.insert(users).values({
+      id: userId,
+      email: normalized.raw,
+      emailRaw: normalized.raw,
+      emailCanonical: normalized.canonical,
+      emailVerified: false,
+      name: parsed.data.name,
+      role: 'admin',
+      adminAccessLevel: parsed.data.accessLevel,
+    });
     await audit(actor.id, 'admin.created', userId, null, {
       email: normalized.canonical,
       accessLevel: parsed.data.accessLevel,
@@ -226,15 +225,13 @@ export async function acceptAdminInvitationAction(input: unknown) {
         )
         .returning({ id: users.id });
       if (!activated[0]) throw new Error('INVITATION_USED');
-      await tx
-        .insert(accounts)
-        .values({
-          id: randomUUID(),
-          userId: target.id,
-          accountId: target.id,
-          providerId: 'credential',
-          password,
-        });
+      await tx.insert(accounts).values({
+        id: randomUUID(),
+        userId: target.id,
+        accountId: target.id,
+        providerId: 'credential',
+        password,
+      });
     });
   } catch (error) {
     if (error instanceof Error && error.message === 'INVITATION_USED')
@@ -342,4 +339,75 @@ export async function setAdminActiveAction(input: unknown) {
     { active: parsed.data.active },
   );
   return actionOk({ active: parsed.data.active });
+}
+
+/** Permanently removes an administrator and their login/security records. */
+export async function deleteAdminUserAction(input: unknown) {
+  let actor;
+  try {
+    actor = await requireSuperAdminOrThrow();
+  } catch {
+    return actionError('Only a super admin can delete administrators.');
+  }
+  const parsed = deleteSchema.safeParse(input);
+  if (!parsed.success) return actionError('Administrator not found.');
+  if (parsed.data.userId === actor.id)
+    return actionError('You cannot delete your own administrator account.');
+
+  const [target] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      accessLevel: users.adminAccessLevel,
+      bannedAt: users.bannedAt,
+    })
+    .from(users)
+    .where(and(eq(users.id, parsed.data.userId), eq(users.role, 'admin')))
+    .limit(1);
+  if (!target) return actionError('Administrator not found.');
+
+  if (target.accessLevel === 'super' && !target.bannedAt) {
+    const [otherSupers] = await db
+      .select({ value: count() })
+      .from(users)
+      .where(
+        and(
+          eq(users.role, 'admin'),
+          eq(users.adminAccessLevel, 'super'),
+          ne(users.id, target.id),
+          isNull(users.bannedAt),
+        ),
+      );
+    if (Number(otherSupers?.value ?? 0) === 0)
+      return actionError('At least one active super admin must remain.');
+  }
+
+  try {
+    const requestHeaders = await headers();
+    await db.transaction(async (tx) => {
+      await tx.insert(auditLog).values({
+        id: randomUUID(),
+        actorId: actor.id,
+        action: 'admin.deleted',
+        entityType: 'user',
+        entityId: target.id,
+        before: {
+          email: target.email,
+          name: target.name,
+          role: target.role,
+          accessLevel: target.accessLevel,
+          active: !target.bannedAt,
+        },
+        after: null,
+        ipHash: hashIp(getClientIp(requestHeaders)),
+      });
+      await tx.delete(users).where(eq(users.id, target.id));
+    });
+    return actionOk({ deleted: true });
+  } catch (error) {
+    console.error('[admin-users] delete failed', error);
+    return actionError('The administrator could not be deleted.');
+  }
 }

@@ -225,24 +225,22 @@ export async function requestVoteOtpAction(input: unknown) {
           .returning({ id: votes.id });
         if (!updated[0]) throw new Error('OTP_COOLDOWN');
       } else {
-        await tx
-          .insert(votes)
-          .values({
-            id: voteId,
-            artistId: artist.id,
-            round: 'public_shortlist',
-            emailRaw: normalized.raw,
-            emailCanonical: normalized.canonical,
-            verificationTokenHash: tokenHash,
-            verificationExpiresAt: expiresAt,
-            verificationSentAt: now,
-            ipHash,
-            ipPrefixHash,
-            userAgentHash,
-            deviceHash,
-            fraudScore: assessment.score,
-            fraudSignals: JSON.stringify(assessment.signals),
-          });
+        await tx.insert(votes).values({
+          id: voteId,
+          artistId: artist.id,
+          round: 'public_shortlist',
+          emailRaw: normalized.raw,
+          emailCanonical: normalized.canonical,
+          verificationTokenHash: tokenHash,
+          verificationExpiresAt: expiresAt,
+          verificationSentAt: now,
+          ipHash,
+          ipPrefixHash,
+          userAgentHash,
+          deviceHash,
+          fraudScore: assessment.score,
+          fraudSignals: JSON.stringify(assessment.signals),
+        });
       }
       await tx.insert(emailConsents).values([
         {
@@ -322,7 +320,11 @@ export async function verifyVoteOtpAction(input: unknown) {
     if (!(await votingIsOpen()))
       return actionError('Voting has closed. This verification can no longer be counted.');
     const [eligibleArtist] = await db
-      .select({ id: artists.id, actName: artists.actName })
+      .select({
+        id: artists.id,
+        actName: artists.actName,
+        primaryPhotoKey: artists.primaryPhotoKey,
+      })
       .from(artists)
       .innerJoin(applications, eq(applications.artistId, artists.id))
       .where(
@@ -383,6 +385,10 @@ export async function verifyVoteOtpAction(input: unknown) {
     if (!updated[0]) return actionError('This vote could not be counted.');
     const confirmed = renderVoteConfirmedEmail({
       artistName: eligibleArtist.actName,
+      artistImageUrl:
+        eligibleArtist.primaryPhotoKey && process.env.CLOUDINARY_CLOUD_NAME
+          ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/c_fill,w_144,h_144,q_auto,f_auto/${eligibleArtist.primaryPhotoKey}`
+          : undefined,
       voterEmail: vote.emailRaw,
     });
     const emailResult = await sendEmail({

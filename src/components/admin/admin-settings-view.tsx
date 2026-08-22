@@ -8,11 +8,13 @@ import {
   RefreshCw,
   ShieldCheck,
   ShieldOff,
+  Trash2,
   UserCog,
   Users,
 } from 'lucide-react';
 import {
   createAdminUserAction,
+  deleteAdminUserAction,
   resendAdminInvitationAction,
   setAdminActiveAction,
   updateAdminAccessAction,
@@ -140,6 +142,18 @@ export function AdminSettingsView({
       });
     });
 
+  const deleteAdministrator = (admin: AdminRecord) => {
+    if (!window.confirm(`Permanently delete ${admin.name || admin.email}? This cannot be undone.`))
+      return;
+    startTransition(async () => {
+      setMessage(null);
+      const result = await deleteAdminUserAction({ userId: admin.id });
+      if (!result.ok) return setMessage({ tone: 'error', text: result.error });
+      setAdministrators((current) => current.filter((item) => item.id !== admin.id));
+      setMessage({ tone: 'success', text: 'Administrator account permanently deleted.' });
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -242,7 +256,7 @@ export function AdminSettingsView({
             return (
               <div
                 key={admin.id}
-                className="grid gap-4 px-5 py-4 lg:grid-cols-[1fr_220px_150px] lg:items-center"
+                className="grid gap-4 px-5 py-4 lg:grid-cols-[1fr_220px_260px] lg:items-center"
               >
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -292,31 +306,42 @@ export function AdminSettingsView({
                     </option>
                   ))}
                 </select>
-                {pending && active ? (
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => resendInvitation(admin.id)}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-orange-200 px-3 py-2 text-xs font-bold text-[#FF5C00] hover:bg-orange-50 disabled:opacity-40"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Resend invite
-                  </button>
-                ) : (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {pending && active ? (
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => resendInvitation(admin.id)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-orange-200 px-3 py-2 text-xs font-bold text-[#FF5C00] hover:bg-orange-50 disabled:opacity-40"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Resend invite
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isPending || admin.id === currentUserId}
+                      onClick={() => changeActive(admin.id, !active)}
+                      className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-40 ${active ? 'border-red-200 text-red-700 hover:bg-red-50' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'}`}
+                    >
+                      {active ? (
+                        <ShieldOff className="h-4 w-4" />
+                      ) : (
+                        <ShieldCheck className="h-4 w-4" />
+                      )}
+                      {active ? 'Deactivate' : 'Reactivate'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={isPending || admin.id === currentUserId}
-                    onClick={() => changeActive(admin.id, !active)}
-                    className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-40 ${active ? 'border-red-200 text-red-700 hover:bg-red-50' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'}`}
+                    onClick={() => deleteAdministrator(admin)}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-40"
                   >
-                    {active ? (
-                      <ShieldOff className="h-4 w-4" />
-                    ) : (
-                      <ShieldCheck className="h-4 w-4" />
-                    )}
-                    {active ? 'Deactivate' : 'Reactivate'}
+                    <Trash2 className="h-4 w-4" />
+                    Delete
                   </button>
-                )}
+                </div>
               </div>
             );
           })}

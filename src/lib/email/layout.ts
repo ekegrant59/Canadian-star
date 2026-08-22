@@ -110,8 +110,8 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
       supported-color-schemes: dark;
     }
     body {
-      margin: 0;
-      padding: 0;
+      margin: 0 !important;
+      padding: 0 !important;
       width: 100% !important;
       -webkit-text-size-adjust: 100%;
       -ms-text-size-adjust: 100%;
@@ -127,6 +127,15 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
       background-color: #131313 !important;
       color: #E5E2E1 !important;
     }
+    u + .email-body .email-bg,
+    u + .email-body .email-card,
+    u + .email-body .email-footer {
+      background-color: #131313 !important;
+      color: #E5E2E1 !important;
+    }
+    u + .email-body .email-card { background-color: #1C1B1B !important; }
+    u + .email-body .hero-copy { color: #FFFFFF !important; }
+    u + .email-body .email-text { color: #D1CFCD !important; }
     table, td {
       border-collapse: collapse;
       mso-table-lspace: 0pt;
@@ -160,7 +169,7 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
     }
   </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #131313; color: #E5E2E1; color-scheme: dark only; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+<body class="email-body" style="margin: 0 !important; padding: 0 !important; background-color: #131313; color: #E5E2E1; color-scheme: dark only; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
   ${
     previewText
       ? `<div style="display: none; font-size: 1px; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all; font-family: sans-serif;">
@@ -170,12 +179,12 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
   }
 
   <!-- Outer Background Table -->
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #131313; min-height: 100vh;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-bg" style="background-color: #131313;">
     <tr>
-      <td align="center" style="padding: 24px 12px 40px 12px;">
+      <td align="center" style="padding: 12px 8px 20px 8px;">
 
         <!-- Main Email Container (600px max) -->
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 600px; background-color: #131313; border: 1px solid #332822; border-radius: 6px; overflow: hidden;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container email-bg" style="max-width: 600px; background-color: #131313; border: 1px solid #332822; border-radius: 6px; overflow: hidden;">
           
           <!-- Top Clean Header (No Cinematic Frontier) -->
           <tr>
@@ -209,7 +218,7 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
                           : ''
                       }
                       <tr>
-                        <td align="center" class="mobile-headline" style="font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 700; line-height: 32px; color: #FFFFFF; text-transform: uppercase; letter-spacing: 1px;">
+                        <td align="center" class="mobile-headline hero-copy" style="font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 700; line-height: 32px; color: #FFFFFF !important; text-transform: uppercase; letter-spacing: 1px;">
                           ${escapeHtml(heroHeadline)}
                         </td>
                       </tr>
@@ -225,12 +234,12 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
           <!-- Content Card Body -->
           <tr>
             <td style="padding: 24px;" class="fluid-padding">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #1C1B1B; border: 1px solid #2A2A2A; border-radius: 4px;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-card" style="background-color: #1C1B1B; border: 1px solid #2A2A2A; border-radius: 4px;">
                 <tr>
                   <td style="padding: 28px 24px;" class="fluid-padding">
                     
                     <!-- Inner Content -->
-                    <div style="font-size: 14px; line-height: 22px; color: #D1CFCD;">
+                    <div class="email-text" style="font-size: 14px; line-height: 22px; color: #D1CFCD !important;">
                       ${contentHtml}
                     </div>
 
@@ -286,7 +295,7 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
 
           <!-- Footer Section -->
           <tr>
-            <td align="center" style="padding: 24px 20px; background-color: #101010; border-top: 1px solid #221C19;">
+            <td align="center" class="email-footer" style="padding: 16px 20px; background-color: #101010; border-top: 1px solid #221C19;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #B38F80; text-transform: uppercase; padding-bottom: 12px;">

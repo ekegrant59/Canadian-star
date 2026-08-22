@@ -303,7 +303,7 @@ export function renderVoteConfirmedEmail(props: VoteConfirmedEmailProps): {
   const {
     artistName,
     artistGenre = 'Canadian Country',
-    artistImageUrl = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+    artistImageUrl,
     artistProfileUrl = `${SITE_URL}/artists`,
     shareUrl = `${SITE_URL}/vote`,
   } = props;
@@ -319,9 +319,13 @@ export function renderVoteConfirmedEmail(props: VoteConfirmedEmailProps): {
         <td style="padding: 16px;">
           <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
             <tr>
-              <td width="72" valign="middle" style="padding-right: 16px;">
-                <img src="${artistImageUrl}" alt="${escapeHtml(artistName)}" width="72" height="72" style="display: block; width: 72px; height: 72px; border-radius: 6px; object-fit: cover; border: 1px solid #44413F;" />
-              </td>
+              ${
+                artistImageUrl
+                  ? `<td width="72" valign="middle" style="padding-right: 16px;">
+                <img src="${escapeHtml(artistImageUrl)}" alt="${escapeHtml(artistName)}" width="72" height="72" style="display: block; width: 72px; height: 72px; border-radius: 6px; object-fit: cover; border: 1px solid #44413F;" />
+              </td>`
+                  : ''
+              }
               <td valign="middle">
                 <p style="margin: 0 0 4px 0; font-family: Georgia, 'Times New Roman', serif; font-size: 18px; font-weight: 700; color: #FFFFFF;">
                   ${escapeHtml(artistName)}
