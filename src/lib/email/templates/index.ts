@@ -14,7 +14,7 @@ import type {
 const SITE_URL = (
   process.env.BETTER_AUTH_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
-  'https://canadianstar.ca'
+  'https://nextgreatcanadiancountrystar.ca'
 ).replace(/\/+$/, '');
 
 /**

@@ -86,10 +86,12 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
   const heroImage = heroImageUrl || defaultHeroBg;
 
   return `<!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" style="color-scheme: dark only; background-color: #131313;">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta name="supported-color-schemes" content="dark">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="x-apple-disable-message-reformatting">
   <title>${escapeHtml(title)}</title>
@@ -103,6 +105,10 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
   </noscript>
   <![endif]-->
   <style>
+    :root {
+      color-scheme: dark only;
+      supported-color-schemes: dark;
+    }
     body {
       margin: 0;
       padding: 0;
@@ -112,6 +118,14 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
       background-color: #131313;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #E5E2E1;
+      color-scheme: dark only;
+    }
+    /* Keep clients that expose their dark-mode override attributes on the
+       authored palette instead of generating a light variant. */
+    [data-ogsc],
+    [data-ogsb] {
+      background-color: #131313 !important;
+      color: #E5E2E1 !important;
     }
     table, td {
       border-collapse: collapse;
@@ -146,7 +160,7 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
     }
   </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #131313; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+<body style="margin: 0; padding: 0; background-color: #131313; color: #E5E2E1; color-scheme: dark only; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
   ${
     previewText
       ? `<div style="display: none; font-size: 1px; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all; font-family: sans-serif;">

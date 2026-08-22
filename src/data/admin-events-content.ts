@@ -235,7 +235,7 @@ export const INITIAL_COMPETITION_EVENTS: CompetitionEvent[] = [
     time: '19:00',
     venueName: 'The Roxy Theatre, LA',
     venueAddress: '9009 Sunset Blvd, West Hollywood, CA 90069',
-    ticketUrl: 'https://tickets.canadianstar.ca/show-1',
+    ticketUrl: 'https://tickets.nextgreatcanadiancountrystar.ca/show-1',
     assignedArtistIds: ['art-001', 'art-002'],
   },
   {
@@ -248,7 +248,7 @@ export const INITIAL_COMPETITION_EVENTS: CompetitionEvent[] = [
     time: '19:00',
     venueName: 'Brooklyn Steel, NYC',
     venueAddress: '319 Frost St, Brooklyn, NY 11222',
-    ticketUrl: 'https://tickets.canadianstar.ca/show-2',
+    ticketUrl: 'https://tickets.nextgreatcanadiancountrystar.ca/show-2',
     assignedArtistIds: [],
   },
   {
@@ -261,7 +261,7 @@ export const INITIAL_COMPETITION_EVENTS: CompetitionEvent[] = [
     time: '20:00',
     venueName: 'Thalia Hall, Chicago',
     venueAddress: '1807 S Allport St, Chicago, IL 60608',
-    ticketUrl: 'https://tickets.canadianstar.ca/show-3',
+    ticketUrl: 'https://tickets.nextgreatcanadiancountrystar.ca/show-3',
     assignedArtistIds: [],
   },
   {
@@ -274,7 +274,7 @@ export const INITIAL_COMPETITION_EVENTS: CompetitionEvent[] = [
     time: '20:00',
     venueName: 'Red Rocks Amphitheatre',
     venueAddress: '18300 W Alameda Pkwy, Morrison, CO 80465',
-    ticketUrl: 'https://tickets.canadianstar.ca/grand-finale',
+    ticketUrl: 'https://tickets.nextgreatcanadiancountrystar.ca/grand-finale',
     assignedArtistIds: [],
     isGrandFinal: true,
   },

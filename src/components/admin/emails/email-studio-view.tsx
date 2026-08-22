@@ -63,7 +63,7 @@ export function EmailStudioView({ recipients }: { recipients: ArtistRecipient[] 
   const [ctaUrl, setCtaUrl] = useState(selectedTemplate.defaultCtaUrl || '/vote');
 
   // Test & Broadcast Modal States
-  const [testEmailAddress, setTestEmailAddress] = useState('admin@canadianstar.ca');
+  const [testEmailAddress, setTestEmailAddress] = useState('admin@nextgreatcanadiancountrystar.ca');
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [toastMessage, setToastMessage] = useState<{
     text: string;

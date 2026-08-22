@@ -89,16 +89,20 @@ export const AVAILABLE_MERGE_TAGS = [
   { tag: '{{genre}}', label: 'Genre / Category', sample: 'Classical Crossover' },
   { tag: '{{show_name}}', label: 'Assigned Show', sample: 'Show 1 : Eastern Showcase' },
   { tag: '{{status}}', label: 'Application Status', sample: 'Approved' },
-  { tag: '{{voting_url}}', label: 'Voting Page URL', sample: 'https://canadianstar.ca/vote' },
+  {
+    tag: '{{voting_url}}',
+    label: 'Voting Page URL',
+    sample: 'https://nextgreatcanadiancountrystar.ca/vote',
+  },
   {
     tag: '{{dashboard_url}}',
     label: 'Artist Dashboard URL',
-    sample: 'https://canadianstar.ca/artist',
+    sample: 'https://nextgreatcanadiancountrystar.ca/artist',
   },
   {
     tag: '{{finalists_url}}',
     label: 'Finalists URL',
-    sample: 'https://canadianstar.ca/#finalists-roster',
+    sample: 'https://nextgreatcanadiancountrystar.ca/#finalists-roster',
   },
 ];
 

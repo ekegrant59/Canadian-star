@@ -299,7 +299,7 @@ export function ContentManagementView() {
     const newSponsor: SponsorRecord = {
       id: `spn-${Date.now()}`,
       name: newSponsorName,
-      websiteUrl: newSponsorLink || 'https://canadianstar.ca',
+      websiteUrl: newSponsorLink || 'https://nextgreatcanadiancountrystar.ca',
       logoUrl,
       tier: 'presenting',
     };

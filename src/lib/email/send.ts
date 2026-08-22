@@ -34,7 +34,8 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     subject,
     html,
     text,
-    from = process.env.EMAIL_FROM || 'Canadian Country Star <noreply@canadianstar.ca>',
+    from = process.env.EMAIL_FROM ||
+      'Canadian Country Star <noreply@nextgreatcanadiancountrystar.ca>',
   } = options;
 
   const brevoKey = process.env.BREVO_API_KEY;

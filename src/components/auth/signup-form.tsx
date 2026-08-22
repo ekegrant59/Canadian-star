@@ -212,7 +212,7 @@ export function SignupForm() {
               name="email"
               type="email"
               className="auth-input"
-              placeholder="name@domain.com"
+              placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

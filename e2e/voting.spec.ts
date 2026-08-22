@@ -9,7 +9,7 @@ test.describe('public voting integrity', () => {
   test('counts only after OTP verification and rejects a canonical alias duplicate', async ({
     page,
   }) => {
-    const local = `canadianstare2e${Date.now()}`;
+    const local = `nextgreatcanadiancountrystare2e${Date.now()}`;
     const voterEmail = `${local}@gmail.com`;
     await page.goto(`/artists/${artistSlug}`);
     await page.getByRole('button', { name: /vote/i }).first().click();

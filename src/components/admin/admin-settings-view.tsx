@@ -213,8 +213,8 @@ export function AdminSettingsView({
               Secure email invitation
             </div>
             <p className="mt-2 leading-relaxed">
-              Brevo will send a single-use link. The invitee creates their own password, and the
-              link expires after 24 hours.
+              We will send a single-use link. The invitee creates their own password, and the link
+              expires after 24 hours.
             </p>
           </div>
         </div>
