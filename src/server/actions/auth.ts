@@ -37,6 +37,9 @@ type PendingSignup = { email: string; fullName: string; password: string; redire
 const AUTH_UNAVAILABLE =
   'Account access is temporarily unavailable. Please try again in a few minutes.';
 
+/** Admin login throttling is enabled unless explicitly disabled at runtime. */
+const ADMIN_RATE_LIMITS_ENABLED = process.env.ADMIN_RATE_LIMITS_ENABLED !== 'false';
+
 async function consumeAuthRateLimit(
   scope: RateLimitScope,
   identifier: string,
@@ -130,18 +133,16 @@ export async function signUpAction(
         redirectTo,
       }),
     );
-    await db
-      .insert(verifications)
-      .values({
-        id: randomUUID(),
-        identifier,
-        value: JSON.stringify({
-          hash: hashVerificationCode(identifier, code),
-          payloadHash,
-          attempts: 0,
-        }),
-        expiresAt,
-      });
+    await db.insert(verifications).values({
+      id: randomUUID(),
+      identifier,
+      value: JSON.stringify({
+        hash: hashVerificationCode(identifier, code),
+        payloadHash,
+        attempts: 0,
+      }),
+      expiresAt,
+    });
     const rendered = renderCustomBroadcastEmail({
       headline: 'Verify your email address',
       bodyHtml: `<p>Enter this code to finish creating your Canadian Country Star artist account:</p><p style="font-size: 30px; font-weight: 700; letter-spacing: 8px; text-align: center;">${code}</p><p>This code expires in 10 minutes and can only be used once.</p>`,
@@ -286,10 +287,12 @@ async function signInForPortal(
   const requestHeaders = await headers();
   const ipHash = hashIp(getClientIp(requestHeaders));
 
-  const ipLimit = await consumeAuthRateLimit('signin:ip', ipHash);
-  if (!ipLimit) return actionError(AUTH_UNAVAILABLE);
-  if (!ipLimit.allowed) {
-    return actionError('Too many sign-in attempts. Please wait a few minutes and try again.');
+  if (portal === 'public' || ADMIN_RATE_LIMITS_ENABLED) {
+    const ipLimit = await consumeAuthRateLimit('signin:ip', ipHash);
+    if (!ipLimit) return actionError(AUTH_UNAVAILABLE);
+    if (!ipLimit.allowed) {
+      return actionError('Too many sign-in attempts. Please wait a few minutes and try again.');
+    }
   }
 
   const parsed = signInSchema.safeParse(input);
@@ -322,12 +325,14 @@ async function signInForPortal(
     return actionError('That email or password is not correct.');
   }
 
-  const emailLimit = await consumeAuthRateLimit('signin:email', normalized.canonical);
-  if (!emailLimit) return actionError(AUTH_UNAVAILABLE);
-  if (!emailLimit.allowed) {
-    // Same message as the IP limit. Say THIS email is throttled and you've
-    // confirmed the address is worth attacking.
-    return actionError('Too many sign-in attempts. Please wait a few minutes and try again.');
+  if (portal === 'public' || ADMIN_RATE_LIMITS_ENABLED) {
+    const emailLimit = await consumeAuthRateLimit('signin:email', normalized.canonical);
+    if (!emailLimit) return actionError(AUTH_UNAVAILABLE);
+    if (!emailLimit.allowed) {
+      // Same message as the IP limit. Say THIS email is throttled and you've
+      // confirmed the address is worth attacking.
+      return actionError('Too many sign-in attempts. Please wait a few minutes and try again.');
+    }
   }
 
   try {
