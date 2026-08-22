@@ -19,6 +19,7 @@ export function Admin2FASetupForm() {
   const [isPending, startTransition] = useTransition();
   const verificationFormRef = useRef<HTMLFormElement | null>(null);
   const autoSubmittedCodeRef = useRef('');
+  const setupStartedRef = useRef(false);
 
   useEffect(() => {
     if (!totpUri || code.length !== 6 || isPending || autoSubmittedCodeRef.current === code) return;
@@ -26,11 +27,19 @@ export function Admin2FASetupForm() {
     verificationFormRef.current?.requestSubmit();
   }, [totpUri, code, isPending]);
 
-  const beginSetup = (event: React.FormEvent) => {
-    event.preventDefault();
+  useEffect(() => {
+    if (setupStartedRef.current || totpUri) return;
+    const password = sessionStorage.getItem('admin-2fa-setup-password');
+    if (!password) {
+      queueMicrotask(() =>
+        setError('This setup session has expired. Sign in again to configure 2FA.'),
+      );
+      return;
+    }
+    sessionStorage.removeItem('admin-2fa-setup-password');
+    setupStartedRef.current = true;
     startTransition(async () => {
-      setError(null);
-      const result = await authClient.twoFactor.enable({});
+      const result = await authClient.twoFactor.enable({ password });
       if (result.error || !result.data) {
         setError(result.error?.message || 'Could not start two-factor setup. Please try again.');
         return;
@@ -39,7 +48,7 @@ export function Admin2FASetupForm() {
       setBackupCodes(result.data.backupCodes);
       setQrCode(await QRCode.toDataURL(result.data.totpURI, { width: 240, margin: 1 }));
     });
-  };
+  }, [startTransition, totpUri]);
 
   const verifySetup = (event: React.FormEvent) => {
     event.preventDefault();
@@ -84,7 +93,7 @@ export function Admin2FASetupForm() {
           )}
 
           {!totpUri ? (
-            <form onSubmit={beginSetup} className="space-y-5">
+            <div className="space-y-5">
               <div className="flex gap-3 rounded-lg border border-[#2c2c2c] bg-[#121212] p-4">
                 <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-[#FF5C00]" />
                 <p className="text-xs leading-relaxed text-gray-400">
@@ -92,14 +101,12 @@ export function Admin2FASetupForm() {
                   one-time recovery codes, then verify the first code from your authenticator.
                 </p>
               </div>
-              <button
-                type="submit"
-                disabled={isPending}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF5C00] px-4 py-3 text-xs font-bold tracking-wider text-white uppercase hover:bg-[#e05200] disabled:opacity-50"
-              >
-                {isPending && <Loader2 className="h-4 w-4 animate-spin" />} Generate Secure Setup
-              </button>
-            </form>
+              {!error && (
+                <div className="flex items-center justify-center gap-2 text-xs font-bold tracking-wider text-[#FF9B70] uppercase">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Generating secure setup...
+                </div>
+              )}
+            </div>
           ) : (
             <form ref={verificationFormRef} onSubmit={verifySetup} className="space-y-6">
               <div className="grid gap-6 sm:grid-cols-2 sm:items-center">

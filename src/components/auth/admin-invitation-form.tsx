@@ -20,6 +20,10 @@ export function AdminInvitationForm() {
     startTransition(async () => {
       const result = await acceptAdminInvitationAction({ token, password, confirmPassword });
       if (!result.ok) return setError(result.error);
+      // The next screen must satisfy Better Auth's re-authentication check for
+      // 2FA enrollment. Keep the password only for this same-tab handoff, then
+      // the setup screen removes it before calling the auth endpoint.
+      sessionStorage.setItem('admin-2fa-setup-password', password);
       router.refresh();
       router.push(result.data.redirectTo);
     });
