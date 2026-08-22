@@ -50,7 +50,9 @@ function buildCsp(isDev: boolean, isSecure: boolean): string {
 
     // Next's static App Router output includes small inline bootstrap scripts.
     // Allow those plus same-origin chunks. Dev also needs eval for refresh.
-    isDev ? `script-src 'self' 'unsafe-inline' 'unsafe-eval'` : `script-src 'self' 'unsafe-inline'`,
+    isDev
+      ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com`
+      : `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com`,
 
     // Tailwind injects styles at runtime; style-src-elem covers the tags it
     // creates. Revisit if a stricter policy proves workable.
@@ -59,15 +61,15 @@ function buildCsp(isDev: boolean, isSecure: boolean): string {
     // blob:/data: cover the local preview shown before an upload completes.
     // The delivery host is named explicitly rather than allowing all https:,
     // so a stored image URL pointing anywhere else simply does not render.
-    `img-src 'self' blob: data: https://res.cloudinary.com`,
+    `img-src 'self' blob: data: https://res.cloudinary.com https://challenges.cloudflare.com`,
     `font-src 'self'`,
 
     // Artist photos upload directly from the browser to Cloudinary, so the
     // upload endpoint must be reachable. The exact host, never a wildcard.
-    `connect-src 'self' https://api.cloudinary.com`,
+    `connect-src 'self' https://api.cloudinary.com https://challenges.cloudflare.com`,
 
     // Submitted media is embedded only from the providers accepted by URL validation.
-    `frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com`,
+    `frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com`,
 
     `object-src 'none'`,
     `base-uri 'self'`,

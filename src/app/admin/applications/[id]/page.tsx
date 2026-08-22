@@ -18,27 +18,41 @@ export default async function AdminApplicationDetailPage({
 }) {
   await requireRole('admin');
   const { id } = await params;
-  const [application, currentStage, votingMetrics, leaderboard] = await Promise.all([
+  const [application, currentStage] = await Promise.all([
     getAdminApplication(id),
     getCompetitionStage(),
-    getAdminVotingMetrics(),
-    getAdminVotingLeaderboard(),
   ]);
   if (!application) notFound();
-  const musicMetadata = await resolveMusicLinkMetadata(
-    Object.values(application.musicLinks ?? {}).filter(Boolean),
-  );
-  const leaderboardEntry = leaderboard.find((entry) => entry.id === application.artistId);
+  const shouldLoadVotingContext =
+    currentStage === 'voting' && application.lifecycleStatus !== 'draft';
+  const [musicMetadata, votingContext] = await Promise.all([
+    application.lifecycleStatus === 'draft'
+      ? Promise.resolve([])
+      : resolveMusicLinkMetadata(Object.values(application.musicLinks ?? {}).filter(Boolean)),
+    shouldLoadVotingContext
+      ? Promise.all([getAdminVotingMetrics(), getAdminVotingLeaderboard()]).then(
+          ([votingMetrics, leaderboard]) => {
+            const entry = leaderboard.find((item) => item.id === application.artistId);
+            return {
+              totalVerifiedVotes: votingMetrics.totalVotesCast,
+              rank: entry?.rank ?? null,
+              candidateCount: leaderboard.length,
+              isVotingOpen: votingMetrics.isVotingOpen,
+            };
+          },
+        )
+      : Promise.resolve({
+          totalVerifiedVotes: 0,
+          rank: null,
+          candidateCount: 0,
+          isVotingOpen: false,
+        }),
+  ]);
   return (
     <ApplicantReviewView
       application={{ ...application, musicMetadata }}
       currentStage={currentStage}
-      votingContext={{
-        totalVerifiedVotes: votingMetrics.totalVotesCast,
-        rank: leaderboardEntry?.rank ?? null,
-        candidateCount: leaderboard.length,
-        isVotingOpen: votingMetrics.isVotingOpen,
-      }}
+      votingContext={votingContext}
     />
   );
 }
