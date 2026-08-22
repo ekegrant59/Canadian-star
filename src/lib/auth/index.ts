@@ -161,6 +161,11 @@ export const auth = betterAuth({
     // guards also enforce TOTP everywhere, including local and staging.
     twoFactor({
       issuer: 'Canadian Country Star',
+      // The invitation flow has just authenticated the new administrator with
+      // the password they created. Requiring that same password again before
+      // showing the TOTP guide adds no useful security and creates a duplicate
+      // setup step. The session remains required; TOTP verification is not.
+      allowPasswordless: true,
     }),
 
     // Must be last. Server Actions call auth.api directly, and this bridge

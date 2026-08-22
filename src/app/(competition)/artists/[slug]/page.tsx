@@ -96,21 +96,38 @@ export default async function ArtistProfilePage({ params }: PageProps) {
     notFound();
   }
 
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': artist.actType === 'band' ? 'MusicGroup' : 'Person',
+    name: artist.name,
+    description: artist.bioSnippet,
+    image: artist.photoUrl,
+    url: `${SITE_URL}/artists/${artist.slug}`,
+    ...(artist.websiteUrl ? { sameAs: [artist.websiteUrl] } : {}),
+    ...(artist.hometown ? { homeLocation: { '@type': 'Place', name: artist.hometown } } : {}),
+  };
+
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0e0e0e]" />}>
-      <ArtistProfileView
-        artist={artist}
-        votingOpen={flag && stageActive}
-        sponsors={sponsorRows.map((sponsor) => ({
-          id: sponsor.id,
-          name: sponsor.name,
-          websiteUrl: sponsor.websiteUrl,
-          logoUrl:
-            sponsor.logoKey && process.env.CLOUDINARY_CLOUD_NAME
-              ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/c_limit,w_400,h_160,q_auto,f_auto/${sponsor.logoKey}`
-              : null,
-        }))}
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-    </Suspense>
+      <Suspense fallback={<div className="min-h-screen bg-[#0e0e0e]" />}>
+        <ArtistProfileView
+          artist={artist}
+          votingOpen={flag && stageActive}
+          sponsors={sponsorRows.map((sponsor) => ({
+            id: sponsor.id,
+            name: sponsor.name,
+            websiteUrl: sponsor.websiteUrl,
+            logoUrl:
+              sponsor.logoKey && process.env.CLOUDINARY_CLOUD_NAME
+                ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/c_limit,w_400,h_160,q_auto,f_auto/${sponsor.logoKey}`
+                : null,
+          }))}
+        />
+      </Suspense>
+    </>
   );
 }

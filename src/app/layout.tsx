@@ -12,10 +12,30 @@ export const metadata: Metadata = {
   description:
     'A five-week live country music competition for emerging and unsigned Ontario artists. Five shows, January 9 to February 6, 2027.',
   metadataBase: new URL(SITE_URL),
+  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'en_CA',
     siteName: EVENT.name,
+    title: EVENT.name,
+    description:
+      'Discover Ontario country artists, cast your verified vote, and experience five live shows in Peterborough.',
+    url: '/',
+    images: [
+      {
+        url: '/images/artist-profile-hero.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Live country music performance at The Next Great Canadian Country Star',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: EVENT.name,
+    description:
+      'Discover Ontario country artists, cast your verified vote, and experience five live shows in Peterborough.',
+    images: ['/images/artist-profile-hero.jpg'],
   },
   robots: {
     index: true,

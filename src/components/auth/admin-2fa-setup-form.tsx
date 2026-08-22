@@ -5,12 +5,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
-import { ArrowRight, Check, Copy, KeyRound, Loader2, Smartphone } from 'lucide-react';
+import { ArrowRight, Check, Copy, Loader2, Smartphone } from 'lucide-react';
 import { authClient } from '@/lib/auth/client';
 
 export function Admin2FASetupForm() {
   const router = useRouter();
-  const [password, setPassword] = useState('');
   const [totpUri, setTotpUri] = useState('');
   const [qrCode, setQrCode] = useState('');
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
@@ -31,9 +30,9 @@ export function Admin2FASetupForm() {
     event.preventDefault();
     startTransition(async () => {
       setError(null);
-      const result = await authClient.twoFactor.enable({ password });
+      const result = await authClient.twoFactor.enable({});
       if (result.error || !result.data) {
-        setError(result.error?.message || 'Could not start two-factor setup. Check your password.');
+        setError(result.error?.message || 'Could not start two-factor setup. Please try again.');
         return;
       }
       setTotpUri(result.data.totpURI);
@@ -65,9 +64,6 @@ export function Admin2FASetupForm() {
   return (
     <div className="flex min-h-screen flex-col justify-center bg-[#0e0e0e] px-4 py-12 text-[#e5e2e1] sm:px-6 lg:px-8">
       <div className="text-center sm:mx-auto sm:w-full sm:max-w-xl">
-        <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-500/10 shadow-lg">
-          <KeyRound className="h-7 w-7 text-emerald-400" />
-        </div>
         <h1 className="text-2xl font-black tracking-tight text-white uppercase sm:text-3xl">
           Set Up Authenticator 2FA
         </h1>
@@ -92,28 +88,13 @@ export function Admin2FASetupForm() {
               <div className="flex gap-3 rounded-lg border border-[#2c2c2c] bg-[#121212] p-4">
                 <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-[#FF5C00]" />
                 <p className="text-xs leading-relaxed text-gray-400">
-                  Confirm your admin password to generate a private authenticator secret and
-                  one-time recovery codes.
+                  Your account is authenticated. Generate a private authenticator secret and
+                  one-time recovery codes, then verify the first code from your authenticator.
                 </p>
               </div>
-              <label
-                className="block text-xs font-bold tracking-wider text-gray-300 uppercase"
-                htmlFor="setup-password"
-              >
-                Admin password
-              </label>
-              <input
-                id="setup-password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-xl border border-[#333] bg-[#121212] px-4 py-3 text-xs text-white focus:border-[#FF5C00] focus:ring-2 focus:ring-[#FF5C00]/40 focus:outline-hidden"
-              />
               <button
                 type="submit"
-                disabled={isPending || !password}
+                disabled={isPending}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF5C00] px-4 py-3 text-xs font-bold tracking-wider text-white uppercase hover:bg-[#e05200] disabled:opacity-50"
               >
                 {isPending && <Loader2 className="h-4 w-4 animate-spin" />} Generate Secure Setup

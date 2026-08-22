@@ -16,11 +16,30 @@ import {
 import type { FinalistArtist, VotingArtist } from '@/types/landing';
 import type { CompetitionStage } from '@/config/event';
 import { getVotingClosingSoonWindow, isWithinWindow } from '@/lib/competition/timeline';
+import { EVENT } from '@/config/event';
+import { SITE_URL } from '@/config/site-url';
 
 export const metadata: Metadata = {
   title: 'The Next Great Canadian Country Star',
   description:
     'Ontario emerging country artists compete for the crown across four qualifying shows and one grand final.',
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    title: 'The Next Great Canadian Country Star',
+    description:
+      'Ontario emerging country artists compete for the crown across four qualifying shows and one grand final.',
+    url: '/',
+    images: [
+      {
+        url: '/images/artist-profile-hero.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'The Next Great Canadian Country Star live performance',
+      },
+    ],
+  },
+  twitter: { card: 'summary_large_image', images: ['/images/artist-profile-hero.jpg'] },
 };
 
 export const instant = false;
@@ -138,45 +157,75 @@ export default async function HomePage() {
       venueAddress: show.venueAddress,
     }));
 
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'MusicEvent',
+    name: EVENT.name,
+    description: metadata.description,
+    url: SITE_URL,
+    image: `${SITE_URL}/images/artist-profile-hero.jpg`,
+    location: {
+      '@type': 'Place',
+      name: EVENT.venue.name,
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: EVENT.venue.city,
+        addressRegion: EVENT.venue.province,
+        addressCountry: EVENT.venue.country,
+      },
+    },
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    eventStatus: 'https://schema.org/EventScheduled',
+    startDate: '2027-01-09T19:00:00-05:00',
+    endDate: '2027-02-06T23:00:00-05:00',
+    organizer: { '@type': 'Organization', name: EVENT.organizer, url: SITE_URL },
+  };
+
   return (
-    <LandingPage
-      // "Voting closes soon" uses the anticipation countdown presentation, but
-      // it remains operationally inside Fan Voting until the voting deadline.
-      stage={votingClosingSoon ? 'anticipation' : stage}
-      schedule={schedule}
-      announcement={announcement}
-      judges={judgeRows.map((judge) => ({
-        id: judge.id,
-        name: judge.name,
-        role: judge.title ?? judge.organization ?? 'Competition judge',
-        bio: judge.bio ?? '',
-        imageUrl: publicMediaUrl(judge.photoKey),
-      }))}
-      sponsors={sponsorRows.map((sponsor) => ({
-        id: sponsor.id,
-        name: sponsor.name,
-        websiteUrl: sponsor.websiteUrl,
-        logoUrl: publicMediaUrl(sponsor.logoKey),
-      }))}
-      viewModelOverride={{
-        votingArtists,
-        finalists,
-        finalistShows,
-        grandFinal,
-        votingOpen: stage === 'voting' && votingFlag,
-        datePillText: heroPhase
-          ? formatPhaseWindow(heroPhase.label, heroPhase.startsAt, heroPhase.endsAt)
-          : undefined,
-        countdown: heroPhase
-          ? {
-              targetDate: heroPhase.endsAt.toISOString(),
-              label: getPhaseDeadlineLabel(stage, votingClosingSoon),
-              subLabel: formatPhaseDeadline(heroPhase.endsAt),
-              isUrgent: votingClosingSoon,
-            }
-          : undefined,
-      }}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <LandingPage
+        // "Voting closes soon" uses the anticipation countdown presentation, but
+        // it remains operationally inside Fan Voting until the voting deadline.
+        stage={votingClosingSoon ? 'anticipation' : stage}
+        schedule={schedule}
+        announcement={announcement}
+        judges={judgeRows.map((judge) => ({
+          id: judge.id,
+          name: judge.name,
+          role: judge.title ?? judge.organization ?? 'Competition judge',
+          bio: judge.bio ?? '',
+          imageUrl: publicMediaUrl(judge.photoKey),
+        }))}
+        sponsors={sponsorRows.map((sponsor) => ({
+          id: sponsor.id,
+          name: sponsor.name,
+          websiteUrl: sponsor.websiteUrl,
+          logoUrl: publicMediaUrl(sponsor.logoKey),
+        }))}
+        viewModelOverride={{
+          votingArtists,
+          finalists,
+          finalistShows,
+          grandFinal,
+          votingOpen: stage === 'voting' && votingFlag,
+          datePillText: heroPhase
+            ? formatPhaseWindow(heroPhase.label, heroPhase.startsAt, heroPhase.endsAt)
+            : undefined,
+          countdown: heroPhase
+            ? {
+                targetDate: heroPhase.endsAt.toISOString(),
+                label: getPhaseDeadlineLabel(stage, votingClosingSoon),
+                subLabel: formatPhaseDeadline(heroPhase.endsAt),
+                isUrgent: votingClosingSoon,
+              }
+            : undefined,
+        }}
+      />
+    </>
   );
 }
 

@@ -1,0 +1,57 @@
+# The Next Great Canadian Country Star Competition: public site guide
+
+This document describes the public pages and published information on the official competition website. It is intended for search systems, assistants, and other tools that need a compact source of truth.
+
+## Organization and event
+
+The event is The Next Great Canadian Country Star Competition, organized by Hellion Entertainment. The working short name used across the site is Canadian Country Star.
+
+The competition is based at The Venue in Peterborough, Ontario, Canada. The published 2027 live schedule contains five Saturday shows:
+
+- January 9, 2027: Qualifying Show 1
+- January 16, 2027: Qualifying Show 2
+- January 23, 2027: Qualifying Show 3
+- January 30, 2027: Qualifying Show 4
+- February 6, 2027: Grand Final
+
+The site may change which campaign phase is active. Current phase, announcements, voting availability, judges, sponsors, and published rosters come from the live site and should be checked on the relevant page before answering time-sensitive questions.
+
+## Public routes
+
+### Home
+
+URL: https://nextgreatcanadiancountrystar.com/
+
+The home page explains the competition, displays the active campaign state, and may show the live schedule, published artists, confirmed judges, confirmed sponsors, announcements, and calls to action. It contains structured event data for search engines.
+
+### Artists directory
+
+URL: https://nextgreatcanadiancountrystar.com/artists
+
+The artists directory lists published artists who are eligible for public display. Visitors can search by name, hometown, or genre. Artist images come from the artist's published primary photo when one exists.
+
+### Voting
+
+URL: https://nextgreatcanadiancountrystar.com/vote
+
+The voting page presents the public roster when the voting window is open. A voter selects an artist, submits an email address, and completes email verification. The voting system enforces one verified vote per email for the public shortlist round, along with additional anti-abuse controls. Voting availability is controlled by the live competition window and feature flags.
+
+### Individual artist profiles
+
+URL pattern: https://nextgreatcanadiancountrystar.com/artists/{slug}
+
+Each published profile may include the artist or band's name, act type, hometown, biography, primary photo, website, social links, music links, performance video, and competition status. The page's title, description, Open Graph image, Twitter image, canonical URL, and JSON-LD profile data are generated from that artist's published record. The artist's own primary photo is used as the share image when available.
+
+## Search and canonicalization
+
+The canonical origin is `https://nextgreatcanadiancountrystar.com`. Requests to the `.ca` domain redirect to the matching `.com` URL. The sitemap is available at `/sitemap.xml`. Administrative, API, and private artist-portal paths are excluded from indexing in `/robots.txt`.
+
+## Interpreting information
+
+Only artists, judges, sponsors, prizes, announcements, and other records marked for public publication should be treated as public competition information. A record visible only in an administrative workflow is not a public confirmation.
+
+Dates, voting status, show details, and roster membership can change as the organizers update the campaign. Prefer the current page and its metadata over older copies in search indexes or third-party posts.
+
+## Contact and account areas
+
+The public site includes sign-in, artist application, newsletter, and account flows. These are interactive services, not general editorial pages. Do not infer private account data, unpublished applications, internal judging records, vote totals, or administrative records from public pages.

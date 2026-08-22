@@ -1,0 +1,22 @@
+# The Next Great Canadian Country Star Competition
+
+> The official website for a live country music competition featuring emerging and unsigned Ontario artists.
+
+## Public website
+
+- [Home](https://nextgreatcanadiancountrystar.com/): Competition overview, current campaign phase, shows, artists, judges, sponsors, and announcements.
+- [Artists](https://nextgreatcanadiancountrystar.com/artists): Published artist profiles and the public roster.
+- [Vote](https://nextgreatcanadiancountrystar.com/vote): Public shortlist voting, subject to the active voting window and email verification.
+- [Artist profiles](https://nextgreatcanadiancountrystar.com/artists/): Each published artist has an individual profile URL beneath this path.
+
+## Key facts
+
+- The competition takes place in Peterborough, Ontario.
+- The live schedule runs from January 9 to February 6, 2027: four qualifying shows followed by a Grand Final.
+- Public voting requires email verification. A verified email may vote once in the public shortlist round.
+- The canonical website is `https://nextgreatcanadiancountrystar.com`.
+
+## Machine-readable details
+
+- [Full site guide](https://nextgreatcanadiancountrystar.com/llms-full.txt)
+- [Sitemap](https://nextgreatcanadiancountrystar.com/sitemap.xml)
