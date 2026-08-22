@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+const CANONICAL_HOST = 'nextgreatcanadiancountrystar.com';
+const LEGACY_HOST = 'nextgreatcanadiancountrystar.ca';
+
 /**
  * Next 16 renamed middleware.ts to proxy.ts, and the exported function to
  * `proxy`. It runs on the Node runtime only; the edge runtime is not
@@ -85,6 +88,22 @@ function buildCsp(isDev: boolean, isSecure: boolean): string {
 }
 
 export function proxy(request: NextRequest) {
+  // Keep one public origin so auth cookies, callback URLs, and search indexes
+  // do not split between the .com and .ca domains.
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const requestHost =
+    ((forwardedHost ?? request.headers.get('host') ?? '').split(',').at(0) ?? '')
+      .trim()
+      .toLowerCase()
+      .split(':')[0] ?? '';
+  if (requestHost === LEGACY_HOST) {
+    const canonicalUrl = request.nextUrl.clone();
+    canonicalUrl.protocol = 'https:';
+    canonicalUrl.hostname = CANONICAL_HOST;
+    canonicalUrl.port = '';
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
+
   const isDev = process.env.NODE_ENV !== 'production';
   const isSecure = isSecureRequest(request);
   const csp = buildCsp(isDev, isSecure);

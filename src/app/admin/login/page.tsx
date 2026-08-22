@@ -58,7 +58,7 @@ export default function AdminLoginPage() {
                 className="mb-1.5 block text-xs font-bold tracking-wider text-gray-300 uppercase"
                 htmlFor="admin-email"
               >
-                Admin Email Address
+                Email Address
               </label>
               <div className="relative">
                 <Mail className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-gray-400" />
