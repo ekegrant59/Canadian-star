@@ -23,11 +23,16 @@ import {
   isAllowedReviewTransition,
   REVIEW_STATUSES,
 } from '@/lib/application-status';
-import { requireAdminWriteOrThrow, AuthorizationError } from '@/lib/auth/guards';
+import {
+  requireAdminWriteOrThrow,
+  requireSuperAdminOrThrow,
+  AuthorizationError,
+} from '@/lib/auth/guards';
 import { getClientIp, hashIp } from '@/lib/crypto';
 import { actionError, actionOk, GENERIC_ERROR, type ActionResult } from './types';
 import { renderArtistApplicationStageEmail } from '@/lib/email/templates';
 import { sendEmail } from '@/lib/email/send';
+import { deletePhotoAssets } from '@/lib/storage';
 
 const stageKeys = COMPETITION_STAGES.map((stage) => stage.key) as [
   CompetitionStage,
@@ -107,6 +112,12 @@ const voteReviewSchema = z.object({
   voteId: z.string().uuid(),
   decision: z.enum(['clear', 'invalidate']),
   reason: z.string().trim().min(3).max(1000),
+  confirmed: z.literal(true),
+});
+
+const deleteArtistSchema = z.object({
+  artistId: z.string().uuid(),
+  applicationId: z.string().uuid(),
   confirmed: z.literal(true),
 });
 
@@ -249,13 +260,11 @@ export async function setVotingOpenAction(input: unknown) {
         target: settings.key,
         set: { value: String(parsed.data.open), updatedBy: admin.id, updatedAt: now },
       });
-    await db
-      .insert(auditLog)
-      .values(
-        await auditValues(admin, 'voting.window_toggled', 'setting', 'flag:VOTING_OPEN', null, {
-          open: parsed.data.open,
-        }),
-      );
+    await db.insert(auditLog).values(
+      await auditValues(admin, 'voting.window_toggled', 'setting', 'flag:VOTING_OPEN', null, {
+        open: parsed.data.open,
+      }),
+    );
     revalidatePath('/');
     revalidatePath('/vote');
     revalidatePath('/artists');
@@ -486,6 +495,87 @@ export async function updateArtistProfileStatusAction(input: unknown) {
   }
 }
 
+/** Permanently removes an artist profile and its application data. */
+export async function deleteArtistApplicationAction(input: unknown) {
+  let admin;
+  try {
+    admin = await requireSuperAdminOrThrow();
+  } catch (error) {
+    return authFailure(error) ?? actionError(GENERIC_ERROR);
+  }
+
+  const parsed = deleteArtistSchema.safeParse(input);
+  if (!parsed.success) return actionError('Confirm the artist deletion.');
+
+  try {
+    const requestHeaders = await headers();
+    const [artistToDelete] = await db
+      .select({
+        id: artists.id,
+        photoKeys: artists.photoKeys,
+      })
+      .from(artists)
+      .innerJoin(applications, eq(applications.artistId, artists.id))
+      .where(
+        and(eq(artists.id, parsed.data.artistId), eq(applications.id, parsed.data.applicationId)),
+      )
+      .limit(1);
+    if (!artistToDelete) return actionError('Artist application not found.');
+
+    await deletePhotoAssets(artistToDelete.photoKeys ?? []);
+
+    await db.transaction(async (tx) => {
+      const [artist] = await tx
+        .select({
+          id: artists.id,
+          actName: artists.actName,
+          applicationId: applications.id,
+          applicationStatus: applications.status,
+        })
+        .from(artists)
+        .innerJoin(applications, eq(applications.artistId, artists.id))
+        .where(
+          and(eq(artists.id, parsed.data.artistId), eq(applications.id, parsed.data.applicationId)),
+        )
+        .limit(1)
+        .for('update');
+      if (!artist) throw new ReviewConflictError('not_found');
+
+      await tx.insert(auditLog).values({
+        id: randomUUID(),
+        actorId: admin.id,
+        actorEmail: admin.email,
+        action: 'artist.application_deleted',
+        entityType: 'artist',
+        entityId: artist.id,
+        before: {
+          actName: artist.actName,
+          applicationId: artist.applicationId,
+          applicationStatus: artist.applicationStatus,
+        },
+        after: null,
+        ipHash: hashIp(getClientIp(requestHeaders)),
+      });
+      await tx.delete(artists).where(eq(artists.id, artist.id));
+    });
+
+    revalidatePath('/');
+    revalidatePath('/artist');
+    revalidatePath('/artists');
+    revalidatePath('/admin');
+    revalidatePath('/admin/applications');
+    revalidatePath(`/admin/applications/${parsed.data.applicationId}`);
+    revalidatePath('/admin/events');
+    revalidatePath('/admin/voting');
+    revalidatePath('/admin/voting/leaderboard');
+    return actionOk({ deleted: true });
+  } catch (error) {
+    if (error instanceof ReviewConflictError) return actionError('Artist application not found.');
+    console.error('[admin] artist deletion failed', error);
+    return actionError(GENERIC_ERROR);
+  }
+}
+
 export async function updateCompetitionPhaseAction(input: unknown) {
   let admin;
   try {
@@ -695,25 +785,21 @@ export async function assignShowArtistsAction(input: unknown) {
       );
       await tx.delete(showArtists).where(eq(showArtists.showId, parsed.data.showId));
       if (parsed.data.artistIds.length)
-        await tx
-          .insert(showArtists)
-          .values(
-            parsed.data.artistIds.map((artistId, index) => ({
-              id: randomUUID(),
-              showId: parsed.data.showId,
-              artistId,
-              performanceOrder: index + 1,
-              advanced: advancedByArtist.get(artistId) ?? null,
-              createdAt: now,
-            })),
-          );
-      await tx
-        .insert(auditLog)
-        .values(
-          await auditValues(admin, 'show.artists_assigned', 'show', parsed.data.showId, null, {
-            artistIds: parsed.data.artistIds,
-          }),
+        await tx.insert(showArtists).values(
+          parsed.data.artistIds.map((artistId, index) => ({
+            id: randomUUID(),
+            showId: parsed.data.showId,
+            artistId,
+            performanceOrder: index + 1,
+            advanced: advancedByArtist.get(artistId) ?? null,
+            createdAt: now,
+          })),
         );
+      await tx.insert(auditLog).values(
+        await auditValues(admin, 'show.artists_assigned', 'show', parsed.data.showId, null, {
+          artistIds: parsed.data.artistIds,
+        }),
+      );
     });
     revalidatePath('/');
     revalidatePath('/admin/events');

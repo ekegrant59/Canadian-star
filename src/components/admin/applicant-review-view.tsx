@@ -22,6 +22,7 @@ import {
   Video,
   X,
   XCircle,
+  Trash2,
 } from 'lucide-react';
 import type { AdminApplicationRecord } from '@/server/queries/admin';
 import type { CompetitionStage } from '@/config/event';
@@ -30,6 +31,7 @@ import { MusicCover } from '@/components/shared/music-cover';
 import { getAllowedReviewTransitions, type ReviewStatus } from '@/lib/application-status';
 import {
   addApplicationReviewNoteAction,
+  deleteArtistApplicationAction,
   updateArtistProfileStatusAction,
   updateApplicationReviewAction,
 } from '@/server/actions/admin';
@@ -91,10 +93,12 @@ export function ApplicantReviewView({
   application: initialApp,
   currentStage,
   votingContext,
+  isSuperAdmin,
 }: {
   application: AdminApplicationRecord;
   currentStage: CompetitionStage;
   votingContext: VotingContext;
+  isSuperAdmin: boolean;
 }) {
   const router = useRouter();
   const [app, setApp] = useState(initialApp);
@@ -106,6 +110,7 @@ export function ApplicantReviewView({
   );
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const allowedTransitions = getAllowedReviewTransitions(app.lifecycleStatus);
 
   const saveDecision = () => {
@@ -182,6 +187,23 @@ export function ApplicantReviewView({
         return;
       }
       setApp((current) => ({ ...current, profileStatus: result.data.status }));
+      router.refresh();
+    });
+  };
+
+  const deleteArtist = () => {
+    startSaving(async () => {
+      setError(null);
+      const result = await deleteArtistApplicationAction({
+        artistId: app.artistId,
+        applicationId: app.id,
+        confirmed: true,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.push('/admin/applications');
       router.refresh();
     });
   };
@@ -553,6 +575,28 @@ export function ApplicantReviewView({
         </div>
       </section>
 
+      {isSuperAdmin && (
+        <section className="rounded-xl border border-red-200 bg-red-50/60 p-6">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-sm font-bold text-red-900">Delete artist application</h2>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-red-800/80">
+                Permanently removes this artist profile, application, votes, and event assignments.
+                The artist account login is kept.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirmation(true)}
+              disabled={isSaving}
+              className="flex shrink-0 items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" /> DELETE ARTIST
+            </button>
+          </div>
+        </section>
+      )}
+
       {decision && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
@@ -605,6 +649,52 @@ export function ApplicantReviewView({
                 className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold text-white disabled:opacity-50 ${decision === 'rejected' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#FF5C00] hover:bg-[#e05200]'}`}
               >
                 {isSaving && <Loader2 className="h-4 w-4 animate-spin" />} Confirm Decision
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Delete {app.stageName}?</h2>
+                <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                  This permanently removes the artist application and related competition records.
+                  This cannot be undone.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirmation(false)}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {error && (
+              <p className="mt-3 text-xs font-semibold text-red-600" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirmation(false)}
+                className="rounded-lg px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={deleteArtist}
+                disabled={isSaving}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {isSaving && <Loader2 className="h-4 w-4 animate-spin" />} Delete permanently
               </button>
             </div>
           </div>

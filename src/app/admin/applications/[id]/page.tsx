@@ -16,7 +16,7 @@ export default async function AdminApplicationDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireRole('admin');
+  const currentUser = await requireRole('admin');
   const { id } = await params;
   const [application, currentStage] = await Promise.all([
     getAdminApplication(id),
@@ -53,6 +53,7 @@ export default async function AdminApplicationDetailPage({
       application={{ ...application, musicMetadata }}
       currentStage={currentStage}
       votingContext={votingContext}
+      isSuperAdmin={currentUser.adminAccessLevel === 'super'}
     />
   );
 }

@@ -110,5 +110,40 @@ export function mediaUrl(publicId: string, variant: MediaVariant = 'card'): stri
   return `https://res.cloudinary.com/${cloudName}/image/upload/${MEDIA_VARIANTS[variant]}/${publicId}`;
 }
 
+/** Permanently removes uploaded artist photos from Cloudinary. */
+export async function deletePhotoAssets(publicIds: string[]): Promise<void> {
+  if (!publicIds.length) return;
+
+  const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  await Promise.all(
+    [...new Set(publicIds)].map(async (publicId) => {
+      const params = {
+        public_id: publicId,
+        timestamp,
+        type: 'upload',
+        invalidate: true,
+      } as const;
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          ...Object.fromEntries(Object.entries(params).map(([key, value]) => [key, String(value)])),
+          api_key: apiKey,
+          signature: signUploadParams(params, apiSecret),
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`Cloudinary asset deletion failed with status ${response.status}`);
+      }
+      const result = (await response.json()) as { result?: string };
+      if (result.result !== 'ok' && result.result !== 'not found') {
+        throw new Error(`Cloudinary asset deletion returned ${result.result ?? 'no result'}`);
+      }
+    }),
+  );
+}
+
 /** Host used in CSP and next/image config. One definition, imported by both. */
 export const CLOUDINARY_DELIVERY_HOST = 'res.cloudinary.com';
