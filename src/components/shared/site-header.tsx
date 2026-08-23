@@ -49,11 +49,7 @@ export function SiteHeader({ activeNav, isHome = false }: SiteHeaderProps) {
           >
             COMPETITION
           </Link>
-          <Link
-            href={getHref('#artists')}
-            onClick={navigateToSection('#artists')}
-            className={activeNav === 'artists' ? 'active-nav' : undefined}
-          >
+          <Link href="/artists" className={activeNav === 'artists' ? 'active-nav' : undefined}>
             ARTISTS
           </Link>
           <Link
