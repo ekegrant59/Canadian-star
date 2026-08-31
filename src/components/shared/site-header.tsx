@@ -96,7 +96,7 @@ export function SiteHeader({ activeNav, isHome = false }: SiteHeaderProps) {
             <Link onClick={navigateToSection('#journey')} href={getHref('#journey')}>
               COMPETITION
             </Link>
-            <Link onClick={navigateToSection('#artists')} href={getHref('#artists')}>
+            <Link href="/artists">
               ARTISTS
             </Link>
             <Link onClick={navigateToSection('#schedule')} href={getHref('#schedule')}>
