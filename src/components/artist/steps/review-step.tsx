@@ -28,6 +28,7 @@ interface ReviewStepProps {
   fieldErrors: Record<string, string>;
   isSubmitting: boolean;
   applicationsOpen: boolean;
+  isReapproval?: boolean;
   onSelectStep: (step: ApplicationStepIndex) => void;
   onBack: () => void;
   onSubmitApplication: () => void;
@@ -72,6 +73,7 @@ export function ReviewStep({
   fieldErrors,
   isSubmitting,
   applicationsOpen,
+  isReapproval = false,
   onSelectStep,
   onBack,
   onSubmitApplication,
@@ -111,8 +113,10 @@ export function ReviewStep({
     <form onSubmit={handleSubmit} noValidate>
       <h1 className="app-page-title">Review Your Application</h1>
       <p className="app-page-subtitle">
-        Check everything below before submitting. Once submitted, your application is locked and
-        changes need to go through us.
+        Check everything below before submitting.{' '}
+        {isReapproval
+          ? 'These edits will be reviewed before they update your public profile.'
+          : 'Once submitted, your application is locked and changes need to go through us.'}
       </p>
 
       {/* Card 1: Artist Profile */}
@@ -362,7 +366,7 @@ export function ReviewStep({
         <FieldError id="accuracy-error" message={errors.confirmAccuracy} />
       </div>
 
-      {!applicationsOpen && (
+      {!applicationsOpen && !isReapproval && (
         <div className="auth-error-banner mb-6" role="status">
           Applications are not open yet, so this cannot be submitted. Your answers are saved as a
           draft and will be here when applications open.
@@ -379,7 +383,7 @@ export function ReviewStep({
         <button
           type="submit"
           className="app-btn-primary"
-          disabled={isSubmitting || !applicationsOpen}
+          disabled={isSubmitting || (!applicationsOpen && !isReapproval)}
         >
           {isSubmitting ? (
             <>
@@ -388,7 +392,7 @@ export function ReviewStep({
             </>
           ) : (
             <>
-              <span>SUBMIT APPLICATION</span>
+              <span>{isReapproval ? 'SUBMIT EDITS FOR APPROVAL' : 'SUBMIT APPLICATION'}</span>
               <ArrowRight size={16} />
             </>
           )}

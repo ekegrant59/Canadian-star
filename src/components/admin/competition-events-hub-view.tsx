@@ -15,6 +15,8 @@ import {
 import { COMPETITION_STAGES, type CompetitionStage } from '@/config/event';
 import {
   assignShowArtistsAction,
+  setFinalWinnerAction,
+  advanceShowArtistAction,
   setCompetitionStageAction,
   updateCompetitionPhaseAction,
   updateShowAction,
@@ -60,6 +62,8 @@ type Show = {
     avatarUrl: string | null;
     performanceOrder: number | null;
     advancedAt: Date | null;
+    winnerAt: Date | null;
+    sourceShowLabel: string | null;
   }>;
 };
 
@@ -135,7 +139,7 @@ export function CompetitionEventsHubView({
     });
   };
 
-  const saveShow = (show: Show, artistIds: string[]) => {
+  const saveShow = (show: Show, artistIds: string[], winnerArtistId?: string) => {
     startSaving(async () => {
       setMessage(null);
       const details = await updateShowAction({
@@ -155,7 +159,7 @@ export function CompetitionEventsHubView({
       // Schedule metadata can be maintained before a roster is ready. Save an
       // assignment whenever the roster changed, including a single Final 16
       // artist selected from the review page.
-      if (artistIds.length > 0 || show.assignedArtists.length > 0) {
+      if (show.type === 'qualifier' && (artistIds.length > 0 || show.assignedArtists.length > 0)) {
         const assignments = await assignShowArtistsAction({
           showId: show.id,
           artistIds,
@@ -163,15 +167,39 @@ export function CompetitionEventsHubView({
         });
         if (!assignments.ok) return setMessage(assignments.error);
       }
+      if (winnerArtistId) {
+        if (show.type === 'qualifier') {
+          const existingAdvancement = show.assignedArtists.find(
+            (artist) => artist.id === winnerArtistId && artist.advancedAt,
+          );
+          if (!existingAdvancement) {
+            const winner = await advanceShowArtistAction({
+              showId: show.id,
+              artistId: winnerArtistId,
+              confirmed: true,
+            });
+            if (!winner.ok) return setMessage(winner.error);
+          }
+        } else {
+          const winner = await setFinalWinnerAction({
+            showId: show.id,
+            artistId: winnerArtistId,
+            confirmed: true,
+          });
+          if (!winner.ok) return setMessage(winner.error);
+        }
+      }
+      const winnerRecordedAt = winnerArtistId ? new Date() : null;
       const artistDetails = new Map(artists.map((artist) => [artist.id, artist]));
       const previous = new Map(
         show.assignedArtists.map((artist) => [artist.id, artist.advancedAt]),
       );
-      setShows((current) =>
-        current.map((item) =>
+      setShows((current) => {
+        const updated = current.map((item) =>
           item.id === show.id
             ? {
                 ...show,
+                status: winnerArtistId ? 'completed' : show.status,
                 assignedArtists: artistIds.map((id, index) => {
                   const artist = artistDetails.get(id);
                   return {
@@ -180,13 +208,54 @@ export function CompetitionEventsHubView({
                     name: artist?.name ?? id,
                     avatarUrl: artist?.avatarUrl ?? null,
                     performanceOrder: index + 1,
-                    advancedAt: previous.get(id) ?? null,
+                    advancedAt:
+                      previous.get(id) ??
+                      (show.type === 'qualifier' && winnerArtistId === id
+                        ? winnerRecordedAt
+                        : null),
+                    winnerAt:
+                      show.type === 'final' && winnerArtistId
+                        ? winnerArtistId === id
+                          ? winnerRecordedAt
+                          : null
+                        : (show.assignedArtists.find((item) => item.id === id)?.winnerAt ?? null),
+                    sourceShowLabel:
+                      show.assignedArtists.find((item) => item.id === id)?.sourceShowLabel ?? null,
                   };
                 }),
               }
             : item,
-        ),
-      );
+        );
+        if (show.type !== 'qualifier') return updated;
+        const currentFinal = updated.find((item) => item.type === 'final');
+        if (!currentFinal) return updated;
+        const finalIndex = updated.indexOf(currentFinal);
+        const finalShow: Show = {
+          ...currentFinal,
+          assignedArtists: [...currentFinal.assignedArtists],
+        };
+        const advanced = updated
+          .filter((item) => item.type === 'qualifier')
+          .flatMap((item) =>
+            item.assignedArtists
+              .filter((artist) => artist.advancedAt)
+              .map((artist) => ({ artist, sourceShowLabel: item.label })),
+          )
+          .filter(
+            (entry, index, all) =>
+              all.findIndex((candidate) => candidate.artist.id === entry.artist.id) === index,
+          )
+          .sort((a, b) => a.sourceShowLabel.localeCompare(b.sourceShowLabel));
+        finalShow.assignedArtists = advanced.map(({ artist, sourceShowLabel }, index) => ({
+          ...artist,
+          performanceOrder: index + 1,
+          sourceShowLabel,
+          winnerAt:
+            finalShow.assignedArtists.find((item) => item.id === artist.id)?.winnerAt ?? null,
+        }));
+        updated[finalIndex] = finalShow;
+        return updated;
+      });
       setEditingShow(null);
       setMessage(`${show.label} saved.`);
     });
@@ -277,7 +346,10 @@ export function CompetitionEventsHubView({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setEditingShow(show)}
+                  onClick={() => {
+                    setMessage(null);
+                    setEditingShow(show);
+                  }}
                   className="rounded-lg p-2 text-gray-500 hover:bg-white hover:text-gray-900"
                   aria-label={`Edit ${show.label}`}
                 >
@@ -303,7 +375,13 @@ export function CompetitionEventsHubView({
                         {artist.name}
                       </span>
                       <span className="mt-0.5 block text-[10px] font-semibold tracking-wider text-gray-400 uppercase">
-                        View application review
+                        {artist.winnerAt
+                          ? 'Grand Final winner'
+                          : artist.advancedAt
+                            ? 'Advanced to Grand Final'
+                            : show.type === 'final' && artist.sourceShowLabel
+                              ? `Winner of ${artist.sourceShowLabel}`
+                              : 'View application review'}
                       </span>
                     </Link>
                   </div>
@@ -336,6 +414,7 @@ export function CompetitionEventsHubView({
           initialArtistId={initialArtistId}
           isSaving={isSaving}
           onClose={() => setEditingShow(null)}
+          message={message}
           onSave={saveShow}
         />
       )}
@@ -450,6 +529,7 @@ function EventEditorModal({
   artists,
   initialArtistId,
   isSaving,
+  message,
   onClose,
   onSave,
 }: {
@@ -457,8 +537,9 @@ function EventEditorModal({
   artists: Artist[];
   initialArtistId?: string;
   isSaving: boolean;
+  message: string | null;
   onClose: () => void;
-  onSave: (show: Show, artistIds: string[]) => void;
+  onSave: (show: Show, artistIds: string[], winnerArtistId?: string) => void;
 }) {
   const [draft, setDraft] = useState(show);
   const [artistIds, setArtistIds] = useState(() => {
@@ -470,21 +551,29 @@ function EventEditorModal({
           ? artist.advancedToFinal
           : artist.applicationStatus === 'shortlisted' || artist.applicationStatus === 'finalist'),
     );
-    if (initialArtistId && requestedArtistIsEligible && !ids.includes(initialArtistId))
+    if (
+      show.type !== 'final' &&
+      initialArtistId &&
+      requestedArtistIsEligible &&
+      !ids.includes(initialArtistId)
+    )
       ids.push(initialArtistId);
     return ids;
   });
-  const selectableArtists =
-    show.type === 'final'
-      ? artists.filter((artist) => artist.advancedToFinal)
-      : artists.filter(
-          (artist) =>
-            artist.applicationStatus === 'shortlisted' || artist.applicationStatus === 'finalist',
-        );
-  const toggleArtist = (id: string) =>
+  const [winnerArtistId, setWinnerArtistId] = useState<string | undefined>(
+    () => show.assignedArtists.find((artist) => artist.advancedAt || artist.winnerAt)?.id,
+  );
+  const finalRosterReady = show.type !== 'final' || artistIds.length === 4;
+  const selectableArtists = artists.filter(
+    (artist) =>
+      artist.applicationStatus === 'shortlisted' || artist.applicationStatus === 'finalist',
+  );
+  const toggleArtist = (id: string) => {
     setArtistIds((current) =>
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
     );
+    setWinnerArtistId((winner) => (winner === id ? undefined : winner));
+  };
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
@@ -581,37 +670,94 @@ function EventEditorModal({
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-xs font-bold tracking-wider text-gray-600 uppercase">
-                {show.type === 'final' ? 'Assign qualifier winners' : 'Assign Final 16 artists'}
+                {show.type === 'final' ? 'Grand Finalists' : 'Assign Final 16 artists'}
               </h3>
               <p className="mt-1 text-[11px] text-gray-500">
                 {show.type === 'final'
-                  ? 'Only artists advanced from a qualifying show can be assigned.'
+                  ? 'Qualifier winners are added automatically as each live show is completed.'
                   : 'Only shortlisted or finalist artists appear here.'}
               </p>
             </div>
             <span className="text-xs text-gray-500">{artistIds.length} selected</span>
           </div>
-          <div className="mt-2 grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2">
-            {selectableArtists.length ? (
-              selectableArtists.map((artist) => (
-                <button
-                  type="button"
-                  key={artist.id}
-                  onClick={() => toggleArtist(artist.id)}
-                  className={`rounded-lg border px-3 py-2 text-left text-xs ${artistIds.includes(artist.id) ? 'border-[#FF5C00] bg-orange-50' : 'border-gray-200 bg-gray-50'}`}
-                >
-                  <span className="font-bold text-gray-900">{artist.name}</span>
-                  <span className="ml-1 text-gray-500">{artist.applicationStatus}</span>
-                </button>
-              ))
-            ) : (
-              <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-4 text-xs text-gray-500 sm:col-span-2">
-                No eligible artists are available yet.
-              </p>
-            )}
-          </div>
+          {show.type === 'final' ? (
+            <div className="mt-2 space-y-2">
+              {show.assignedArtists.length ? (
+                show.assignedArtists.map((artist) => (
+                  <div
+                    key={artist.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs"
+                  >
+                    <span className="font-bold text-gray-900">{artist.name}</span>
+                    <span className="text-gray-500">
+                      {artist.sourceShowLabel
+                        ? `Winner of ${artist.sourceShowLabel}`
+                        : 'Qualifier winner'}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-4 text-xs text-gray-500">
+                  No qualifying show winners have been recorded yet.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-2 grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2">
+              {selectableArtists.length ? (
+                selectableArtists.map((artist) => (
+                  <button
+                    type="button"
+                    key={artist.id}
+                    onClick={() => toggleArtist(artist.id)}
+                    className={`rounded-lg border px-3 py-2 text-left text-xs ${artistIds.includes(artist.id) ? 'border-[#FF5C00] bg-orange-50' : 'border-gray-200 bg-gray-50'}`}
+                  >
+                    <span className="font-bold text-gray-900">{artist.name}</span>
+                    <span className="ml-1 text-gray-500">{artist.applicationStatus}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-4 text-xs text-gray-500 sm:col-span-2">
+                  No eligible artists are available yet.
+                </p>
+              )}
+            </div>
+          )}
         </div>
+        {artistIds.length > 0 && (
+          <label className="mt-4 block text-xs font-bold text-gray-600">
+            {show.type === 'final' ? 'Grand Final winner' : 'Qualifying show winner'}
+            <select
+              value={winnerArtistId ?? ''}
+              disabled={!finalRosterReady}
+              onChange={(event) => setWinnerArtistId(event.target.value || undefined)}
+              className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100"
+            >
+              <option value="">Choose after the show</option>
+              {artistIds.map((id) => {
+                const artist = artists.find((item) => item.id === id);
+                return (
+                  <option key={id} value={id}>
+                    {artist?.name ?? id}
+                  </option>
+                );
+              })}
+            </select>
+            <span className="mt-1 block text-[11px] font-normal text-gray-500">
+              {show.type === 'final'
+                ? finalRosterReady
+                  ? 'Selecting this records the official competition champion.'
+                  : 'Awaiting all four qualifying show winners.'
+                : 'Selecting this advances the artist to the Grand Final.'}
+            </span>
+          </label>
+        )}
         <div className="mt-6 flex justify-end gap-2 border-t border-gray-100 pt-4">
+          {message && (
+            <p className="mr-auto self-center text-xs font-semibold text-red-600" role="status">
+              {message}
+            </p>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -622,11 +768,11 @@ function EventEditorModal({
           <button
             type="button"
             disabled={isSaving}
-            onClick={() => onSave(draft, artistIds)}
+            onClick={() => onSave(draft, artistIds, winnerArtistId)}
             className="inline-flex items-center gap-2 rounded-lg bg-[#FF5C00] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
-            Save event
+            {isSaving ? 'Saving...' : 'Save event'}
           </button>
         </div>
       </div>

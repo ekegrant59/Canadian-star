@@ -52,6 +52,11 @@ export function AdminDashboardClient({
   const nextShow = shows
     .filter((show) => show.status === 'scheduled' || show.status === 'postponed')
     .sort((a, b) => a.showDate.localeCompare(b.showDate))[0];
+  const reapprovalCount = applications.filter(
+    (application) =>
+      Boolean(application.pendingEditsSubmittedAt) &&
+      ['approved', 'shortlisted', 'finalist'].includes(application.lifecycleStatus),
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -77,6 +82,26 @@ export function AdminDashboardClient({
         >
           <Settings2 className="h-4 w-4" />
           MANAGE TIMELINE
+        </Link>
+      </section>
+
+      <section className="flex items-center justify-between gap-4 rounded-xl border border-orange-200 bg-orange-50 p-5">
+        <div>
+          <p className="text-[10px] font-black tracking-[0.18em] text-[#FF5C00] uppercase">
+            Artist reapproval
+          </p>
+          <h2 className="mt-1 text-lg font-black text-gray-900">
+            {reapprovalCount} edit{reapprovalCount === 1 ? '' : 's'} awaiting review
+          </h2>
+          <p className="mt-1 text-xs text-gray-600">
+            Approved artist profiles stay unchanged until edits are approved.
+          </p>
+        </div>
+        <Link
+          href="/admin/reapproval"
+          className="shrink-0 rounded-lg bg-[#FF5C00] px-3 py-2 text-xs font-bold text-white hover:bg-[#e05200]"
+        >
+          REVIEW EDITS
         </Link>
       </section>
 

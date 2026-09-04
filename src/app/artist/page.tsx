@@ -50,12 +50,24 @@ export default async function ArtistPortalPage() {
     isCompetitionStageActive('applications'),
     getCompetitionStage(),
   ]);
-  const photoUrl = application?.primaryPhotoKey
-    ? mediaUrl(application.primaryPhotoKey, 'profile')
+  const photoKey = application?.pendingEdits?.photoKey
+    ? String(application.pendingEdits.photoKey)
+    : application?.primaryPhotoKey;
+  const photoUrl = photoKey ? mediaUrl(photoKey, 'profile') : null;
+  const pendingMusic = Array.isArray(application?.pendingEdits?.recordedMusicUrls)
+    ? application.pendingEdits.recordedMusicUrls.filter(
+        (value): value is string => typeof value === 'string' && value.trim().length > 0,
+      )
     : null;
   const musicMetadata = application
-    ? await resolveMusicLinkMetadata(Object.values(application.musicLinks ?? {}).filter(Boolean))
+    ? await resolveMusicLinkMetadata(
+        pendingMusic ?? Object.values(application.musicLinks ?? {}).filter(Boolean),
+      )
     : [];
+  const pendingEditKeys =
+    application?.pendingEditsSubmittedAt && application.pendingEdits
+      ? getChangedPendingEditKeys(application)
+      : [];
 
   return (
     <ApplicationFlow
@@ -65,10 +77,54 @@ export default async function ArtistPortalPage() {
       submittedAt={application?.submittedAt?.toISOString() ?? null}
       applicationId={application?.applicationId ?? null}
       rejectionReason={application?.rejectionReason ?? null}
+      hasPendingEdits={Boolean(application?.pendingEditsSubmittedAt)}
+      pendingEditKeys={pendingEditKeys}
       initialStep={application?.currentStep ?? 1}
       applicationsOpen={applicationsOpen}
       accountEmail={user.email}
       accountName={user.name}
     />
+  );
+}
+
+function getChangedPendingEditKeys(
+  application: NonNullable<Awaited<ReturnType<typeof getApplicationForUser>>>,
+) {
+  const pending = application.pendingEdits ?? {};
+  const current: Record<string, unknown> = {
+    actName: application.actName,
+    actType: application.actType,
+    locationCity: application.locationCity,
+    contactEmail: application.contactEmail,
+    contactPhone: application.contactPhone,
+    bio: application.bio,
+    photoKey: application.primaryPhotoKey,
+    performanceVideoUrls: application.performanceVideoUrls.length
+      ? application.performanceVideoUrls
+      : application.performanceVideoUrl
+        ? [application.performanceVideoUrl]
+        : [],
+    recordedMusicUrls: Object.values(application.musicLinks ?? {}).filter(Boolean),
+    availableAllDates: application.availableAllDates,
+    isEligible: application.isOfAge,
+    acceptedRules: application.acceptedRules,
+    acceptedMediaRelease: application.acceptedMediaRelease,
+    instagram: application.socialLinks?.instagram,
+    tiktok: application.socialLinks?.tiktok,
+    x: application.socialLinks?.x,
+    youtube: application.socialLinks?.youtube,
+    facebook: application.socialLinks?.facebook,
+    websiteUrl: application.websiteUrl,
+  };
+  const normalize = (value: unknown): unknown => {
+    if (Array.isArray(value))
+      return value
+        .filter((item) => typeof item === 'string' && item.trim())
+        .map((item) => String(item).trim());
+    if (typeof value === 'string') return value.trim();
+    return value ?? null;
+  };
+  return Object.keys(current).filter(
+    (key) => JSON.stringify(normalize(current[key])) !== JSON.stringify(normalize(pending[key])),
   );
 }

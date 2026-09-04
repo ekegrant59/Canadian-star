@@ -22,8 +22,8 @@ const STEP_LABELS: Record<ApplicationStepIndex, string> = {
   5: 'Submitted',
 };
 
-/** Statuses that mean the application is no longer editable (§3.2). */
-const LOCKED_STATUSES = new Set(['approved', 'shortlisted', 'finalist', 'withdrawn']);
+/** Withdrawn applications are the only records that cannot be edited. */
+const LOCKED_STATUSES = new Set(['withdrawn']);
 
 interface ApplicationFlowProps {
   initialData: ApplicationFormData;
@@ -32,6 +32,8 @@ interface ApplicationFlowProps {
   submittedAt: string | null;
   applicationId: string | null;
   rejectionReason: string | null;
+  hasPendingEdits?: boolean;
+  pendingEditKeys?: string[];
   initialStep: number;
   applicationsOpen: boolean;
   accountEmail: string;
@@ -45,6 +47,8 @@ export function ApplicationFlow({
   submittedAt,
   applicationId,
   rejectionReason,
+  hasPendingEdits = false,
+  pendingEditKeys = [],
   initialStep,
   applicationsOpen,
   accountEmail,
@@ -52,9 +56,11 @@ export function ApplicationFlow({
 }: ApplicationFlowProps) {
   const router = useRouter();
   const isLocked = status !== null && LOCKED_STATUSES.has(status);
+  const isReapproval = status === 'approved' || status === 'shortlisted' || status === 'finalist';
 
   const [currentStep, setCurrentStep] = useState<ApplicationStepIndex>(() => {
     if (isLocked) return 5;
+    if (initialStep >= 5) return 5;
     const step = Math.min(Math.max(initialStep, 1), 4);
     return step as ApplicationStepIndex;
   });
@@ -62,7 +68,7 @@ export function ApplicationFlow({
   // A returning artist already walked the steps their draft covers, so those
   // stay navigable instead of re-locking behind a linear walk.
   const [maxCompletedStep, setMaxCompletedStep] = useState<number>(
-    isLocked ? 5 : Math.max(initialStep - 1, 0),
+    isLocked || initialStep >= 5 ? 5 : Math.max(initialStep - 1, 0),
   );
 
   const [formData, setFormData] = useState<ApplicationFormData>(initialData);
@@ -253,6 +259,11 @@ export function ApplicationFlow({
           currentStep={currentStep}
           maxCompletedStep={maxCompletedStep}
           onSelectStep={handleSelectStep}
+          canEditProfile={!isLocked}
+          onEditProfile={() => {
+            setCurrentStep(1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
         />
 
         <main
@@ -273,7 +284,7 @@ export function ApplicationFlow({
             </div>
           )}
 
-          {!applicationsOpen && !isLocked && currentStep !== 5 && (
+          {!applicationsOpen && !isLocked && !isReapproval && currentStep !== 5 && (
             <div className="auth-error-banner mb-6" role="status">
               Applications are not open yet. You can fill this in and save it as a draft, and submit
               once applications open.
@@ -328,6 +339,7 @@ export function ApplicationFlow({
               fieldErrors={fieldErrors}
               isSubmitting={isSubmitting}
               applicationsOpen={applicationsOpen}
+              isReapproval={isReapproval}
               onSelectStep={handleSelectStep}
               onBack={() => handleSelectStep(3)}
               onSubmitApplication={handleSubmitApplication}
@@ -335,16 +347,23 @@ export function ApplicationFlow({
           )}
 
           {currentStep === 5 && (
-            <SubmittedStep
-              formData={formData}
-              applicationId={submissionId}
-              submittedAt={submissionDate}
-              status={status}
-              competitionStage={competitionStage}
-              rejectionReason={rejectionReason}
-              canEdit={!isLocked}
-              onEdit={() => setCurrentStep(1)}
-            />
+            <>
+              {hasPendingEdits && (
+                <div className="auth-success-banner mb-6" role="status">
+                  Your edits are with the review team. Your public profile will update after
+                  approval.
+                </div>
+              )}
+              <SubmittedStep
+                formData={formData}
+                applicationId={submissionId}
+                submittedAt={submissionDate}
+                status={status}
+                competitionStage={competitionStage}
+                rejectionReason={rejectionReason}
+                pendingEditKeys={pendingEditKeys}
+              />
+            </>
           )}
         </main>
       </div>

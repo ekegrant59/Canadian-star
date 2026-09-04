@@ -4,6 +4,7 @@ import type {
   ArtistApplicationApprovedEmailProps,
   ArtistApplicationRejectedEmailProps,
   ArtistApplicationStageEmailProps,
+  ArtistEditDecisionEmailProps,
   VotingOtpEmailProps,
   VoteConfirmedEmailProps,
   Final16AnnouncementEmailProps,
@@ -230,6 +231,34 @@ export function renderArtistApplicationStageEmail(props: ArtistApplicationStageE
     ctaUrl: dashboardUrl,
   });
   const text = `Hello ${artistName},\n\n${details.message}\n\nCurrent status: ${details.label}\n\nView your dashboard: ${dashboardUrl}\n\nCanadian Country Star`;
+  return { subject, html, text };
+}
+
+export function renderArtistEditDecisionEmail(props: ArtistEditDecisionEmailProps): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const { artistName, actName, approved, reason, dashboardUrl = `${SITE_URL}/artist` } = props;
+  const label = approved ? 'PROFILE EDITS APPROVED' : 'PROFILE EDITS NOT APPROVED';
+  const title = approved ? 'Your profile edits were approved' : 'Your profile edits need changes';
+  const subject = `${title} : Canadian Country Star`;
+  const noteHtml = reason.trim()
+    ? `<div style="background-color:#232222;border:1px solid #333130;border-radius:4px;padding:16px;margin:16px 0;"><p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#FF9B70;text-transform:uppercase;">ADMIN REVIEW NOTE</p><p style="margin:0;font-size:13px;line-height:20px;color:#D1CFCD;">${escapeHtml(reason)}</p></div>`
+    : '';
+  const contentHtml = `<p style="margin:0 0 16px;font-size:15px;line-height:24px;color:#E5E2E1;">Hello <strong>${escapeHtml(artistName)}</strong>,</p><p style="margin:0 0 16px;font-size:14px;line-height:22px;color:#C8C6C5;">${approved ? `Your requested updates to ${escapeHtml(actName)} are now live on your public competition profile.` : `Your requested updates to ${escapeHtml(actName)} were not approved yet. Your current public profile remains unchanged.`}</p>${noteHtml}`;
+  const html = wrapInEmailLayout({
+    title: subject,
+    previewText: title,
+    heroHeadline: label,
+    heroCategory: 'PROFILE UPDATE',
+    heroImageUrl:
+      'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1200&q=80',
+    contentHtml,
+    ctaText: 'VIEW MY DASHBOARD',
+    ctaUrl: dashboardUrl,
+  });
+  const text = `Hello ${artistName},\n\n${approved ? `Your profile edits for ${actName} were approved and are now live.` : `Your profile edits for ${actName} were not approved yet. Your public profile remains unchanged.`}${reason.trim() ? `\n\nAdmin review note: ${reason}` : ''}\n\nView your dashboard: ${dashboardUrl}\n\nCanadian Country Star`;
   return { subject, html, text };
 }
 

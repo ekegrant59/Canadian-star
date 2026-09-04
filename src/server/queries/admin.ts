@@ -30,6 +30,7 @@ export type AdminApplicationRecord = {
   location: string;
   email: string;
   phone: string;
+  websiteUrl: string;
   formationYear?: number | null;
   memberCount?: number | null;
   bio: string;
@@ -38,12 +39,17 @@ export type AdminApplicationRecord = {
   lifecycleStatus: (typeof applications.status.enumValues)[number];
   rejectionReason?: string;
   avatarUrl: string | null;
+  primaryPhotoKey: string | null;
   coverPhotoUrl: string | null;
+  pendingPhotoUrl: string | null;
   audioTracks: Array<{ title: string; duration: string; url?: string }>;
   videoUrl?: string;
   videoUrls: string[];
   videoThumbnailUrl?: string;
   availability: { allRequiredDates: boolean; grandFinale: boolean };
+  eligibility: boolean;
+  acceptedRules: boolean;
+  acceptedMediaRelease: boolean;
   socialLinks: Record<string, string>;
   musicLinks: Record<string, string>;
   musicMetadata?: Array<{
@@ -56,6 +62,8 @@ export type AdminApplicationRecord = {
   reviewedBy?: string;
   profileStatus: 'hidden' | 'published' | 'archived';
   submittedAt: Date | null;
+  pendingEdits: Record<string, unknown> | null;
+  pendingEditsSubmittedAt: Date | null;
   verifiedVotes: number;
   pendingVotes: number;
   flaggedVotes: number;
@@ -96,6 +104,9 @@ function mapRow(
     status: (typeof applications.status.enumValues)[number];
     submittedAt: Date | null;
     availableAllDates: boolean | null;
+    isOfAge: boolean | null;
+    acceptedRules: boolean;
+    acceptedMediaRelease: boolean;
     rejectionReason: string | null;
     reviewNotes: string | null;
     reviewedBy: string | null;
@@ -109,12 +120,15 @@ function mapRow(
     memberCount: number | null;
     contactEmail: string | null;
     contactPhone: string | null;
+    websiteUrl: string | null;
     photoKeys: string[];
     primaryPhotoKey: string | null;
     performanceVideoUrl: string | null;
     performanceVideoUrls: string[];
     socialLinks: Record<string, string>;
     musicLinks: Record<string, string>;
+    pendingEdits: Record<string, unknown> | null;
+    pendingEditsSubmittedAt: Date | null;
     userName: string | null;
   },
   voteStats: {
@@ -141,6 +155,7 @@ function mapRow(
     location: [row.locationCity, row.locationProvince].filter(Boolean).join(', ') || 'Ontario',
     email: row.contactEmail || '',
     phone: row.contactPhone || '',
+    websiteUrl: row.websiteUrl || '',
     formationYear: row.formationYear,
     memberCount: row.memberCount,
     bio: row.bio || 'No biography provided.',
@@ -149,7 +164,11 @@ function mapRow(
     lifecycleStatus: row.status,
     rejectionReason: row.rejectionReason ?? undefined,
     avatarUrl: safeMediaUrl(row.primaryPhotoKey || row.photoKeys?.[0]),
+    primaryPhotoKey: row.primaryPhotoKey || row.photoKeys?.[0] || null,
     coverPhotoUrl: safeMediaUrl(row.primaryPhotoKey || row.photoKeys?.[0]),
+    pendingPhotoUrl: safeMediaUrl(
+      typeof row.pendingEdits?.photoKey === 'string' ? row.pendingEdits.photoKey : null,
+    ),
     audioTracks: musicEntries.map(([key, url]) => ({
       title: key.replace(/^link_\d+$/, 'Recorded music'),
       duration: 'External link',
@@ -162,12 +181,17 @@ function mapRow(
       allRequiredDates: Boolean(row.availableAllDates),
       grandFinale: Boolean(row.availableAllDates),
     },
+    eligibility: Boolean(row.isOfAge),
+    acceptedRules: row.acceptedRules,
+    acceptedMediaRelease: row.acceptedMediaRelease,
     socialLinks: row.socialLinks ?? {},
     musicLinks: row.musicLinks ?? {},
     reviewNotes: row.reviewNotes ?? undefined,
     reviewedBy: row.reviewedBy ?? undefined,
     profileStatus: row.profileStatus,
     submittedAt: row.submittedAt,
+    pendingEdits: row.pendingEdits,
+    pendingEditsSubmittedAt: row.pendingEditsSubmittedAt,
     ...voteStats,
   };
 }
@@ -178,6 +202,9 @@ const adminApplicationColumns = {
   status: applications.status,
   submittedAt: applications.submittedAt,
   availableAllDates: applications.availableAllDates,
+  isOfAge: applications.isOfAge,
+  acceptedRules: applications.acceptedRules,
+  acceptedMediaRelease: applications.acceptedMediaRelease,
   rejectionReason: applications.rejectionReason,
   reviewNotes: applications.reviewNotes,
   reviewedBy: applications.reviewedBy,
@@ -191,12 +218,15 @@ const adminApplicationColumns = {
   memberCount: artists.memberCount,
   contactEmail: artists.contactEmail,
   contactPhone: artists.contactPhone,
+  websiteUrl: artists.websiteUrl,
   photoKeys: artists.photoKeys,
   primaryPhotoKey: artists.primaryPhotoKey,
   performanceVideoUrl: artists.performanceVideoUrl,
   performanceVideoUrls: artists.performanceVideoUrls,
   socialLinks: artists.socialLinks,
   musicLinks: artists.musicLinks,
+  pendingEdits: applications.pendingEdits,
+  pendingEditsSubmittedAt: applications.pendingEditsSubmittedAt,
   userName: users.name,
 };
 
@@ -211,6 +241,23 @@ export async function getAdminApplications(): Promise<AdminApplicationRecord[]> 
   const records = rows.map((row) => mapRow(row, counts.get(row.artistId)));
   const assignments = await getQualifierAssignments(rows.map((row) => row.artistId));
   return records.map((record) => ({ ...record, qualifyingShow: assignments.get(record.artistId) }));
+}
+
+export async function getAdminReapprovalApplications(): Promise<AdminApplicationRecord[]> {
+  const rows = await db
+    .select(adminApplicationColumns)
+    .from(applications)
+    .innerJoin(artists, eq(artists.id, applications.artistId))
+    .innerJoin(users, eq(users.id, artists.userId))
+    .where(
+      and(
+        isNotNull(applications.pendingEditsSubmittedAt),
+        inArray(applications.status, ['approved', 'shortlisted', 'finalist']),
+      ),
+    )
+    .orderBy(desc(applications.pendingEditsSubmittedAt), asc(artists.actName));
+  const counts = await getApplicationVoteStats(rows.map((row) => row.artistId));
+  return rows.map((row) => mapRow(row, counts.get(row.artistId)));
 }
 
 export async function getAdminEmailRecipients() {
@@ -416,6 +463,30 @@ export async function getAdminDashboardData() {
   };
 }
 
+export async function getAdminPendingCounts() {
+  const [pendingApplications, pendingEdits, stage] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(applications)
+      .where(inArray(applications.status, ['submitted', 'under_review'])),
+    db
+      .select({ value: count() })
+      .from(applications)
+      .where(
+        and(
+          isNotNull(applications.pendingEditsSubmittedAt),
+          inArray(applications.status, ['approved', 'shortlisted', 'finalist']),
+        ),
+      ),
+    getCompetitionStage(),
+  ]);
+  return {
+    pendingApplications: stage === 'applications' ? Number(pendingApplications[0]?.value ?? 0) : 0,
+    pendingEdits: Number(pendingEdits[0]?.value ?? 0),
+    stage,
+  };
+}
+
 export async function getAdminCompetitionPhases() {
   return db
     .select({
@@ -452,6 +523,7 @@ export async function getAdminShows() {
       assignedArtistPhotoKey: artists.primaryPhotoKey,
       performanceOrder: showArtists.performanceOrder,
       advancedAt: showArtists.advanced,
+      winnerAt: showArtists.winnerAt,
     })
     .from(shows)
     .leftJoin(showArtists, eq(showArtists.showId, shows.id))
@@ -459,7 +531,7 @@ export async function getAdminShows() {
     .leftJoin(applications, eq(applications.artistId, artists.id))
     .orderBy(asc(shows.displayOrder), asc(shows.showDate), asc(showArtists.performanceOrder));
 
-  return rows.reduce<
+  const grouped = rows.reduce<
     Array<{
       id: string;
       key: string;
@@ -481,6 +553,8 @@ export async function getAdminShows() {
         avatarUrl: string | null;
         performanceOrder: number | null;
         advancedAt: Date | null;
+        winnerAt: Date | null;
+        sourceShowLabel: string | null;
       }>;
     }>
   >((acc, row) => {
@@ -512,9 +586,22 @@ export async function getAdminShows() {
         avatarUrl: safeMediaUrl(row.assignedArtistPhotoKey),
         performanceOrder: row.performanceOrder,
         advancedAt: row.advancedAt,
+        winnerAt: row.winnerAt,
+        sourceShowLabel: null,
       });
     return acc;
   }, []);
+
+  const finalShow = grouped.find((show) => show.type === 'final');
+  if (!finalShow || !finalShow.assignedArtists.length) return grouped;
+  const sourceShows = await getQualifierAssignments(
+    finalShow.assignedArtists.map((artist) => artist.id),
+  );
+  finalShow.assignedArtists = finalShow.assignedArtists.map((artist) => ({
+    ...artist,
+    sourceShowLabel: sourceShows.get(artist.id)?.label ?? null,
+  }));
+  return grouped;
 }
 
 export async function getAdminEligibleArtists() {

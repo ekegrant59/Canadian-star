@@ -46,6 +46,8 @@ export function ContentManagementView() {
   const [newSponsorLogoUrl, setNewSponsorLogoUrl] = useState('');
   const [newSponsorLogoFile, setNewSponsorLogoFile] = useState<File | null>(null);
   const [newSponsorLogoPreview, setNewSponsorLogoPreview] = useState('');
+  const [newSponsorPlacement, setNewSponsorPlacement] = useState<'top' | 'bottom'>('bottom');
+  const [editingSponsorId, setEditingSponsorId] = useState<string | null>(null);
   const [isUploadingJudge, setIsUploadingJudge] = useState(false);
   const [isUploadingSponsor, setIsUploadingSponsor] = useState(false);
   const judgeFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -268,8 +270,10 @@ export function ContentManagementView() {
     setNewSponsorName('');
     setNewSponsorLink('');
     setNewSponsorLogoUrl('');
+    setNewSponsorPlacement('bottom');
     setNewSponsorLogoFile(null);
     setNewSponsorLogoPreview('');
+    setEditingSponsorId(null);
     setIsAddingSponsor(false);
     if (sponsorFileInputRef.current) sponsorFileInputRef.current.value = '';
   };
@@ -297,14 +301,17 @@ export function ContentManagementView() {
     }
 
     const newSponsor: SponsorRecord = {
-      id: `spn-${Date.now()}`,
+      id: editingSponsorId ?? `spn-${crypto.randomUUID()}`,
       name: newSponsorName,
       websiteUrl: newSponsorLink || 'https://nextgreatcanadiancountrystar.ca',
       logoUrl,
       tier: 'presenting',
+      placement: newSponsorPlacement,
     };
 
-    const nextSponsors = [...content.sponsors, newSponsor];
+    const nextSponsors = editingSponsorId
+      ? content.sponsors.map((sponsor) => (sponsor.id === editingSponsorId ? newSponsor : sponsor))
+      : [...content.sponsors, newSponsor];
     try {
       await persistManagedContent({ sponsors: nextSponsors });
     } catch (error) {
@@ -318,7 +325,9 @@ export function ContentManagementView() {
       sponsors: nextSponsors,
       overview: {
         ...content.overview,
-        sponsorLogos: content.overview.sponsorLogos + 1,
+        sponsorLogos: editingSponsorId
+          ? content.overview.sponsorLogos
+          : content.overview.sponsorLogos + 1,
       },
     });
 
@@ -345,6 +354,7 @@ export function ContentManagementView() {
         sponsorLogos: Math.max(0, content.overview.sponsorLogos - 1),
       },
     });
+    if (editingSponsorId === id) resetSponsorForm();
   };
 
   return (
@@ -724,38 +734,96 @@ export function ContentManagementView() {
               </button>
             </div>
 
-            {/* Existing Sponsor Logos Grid */}
-            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {content.sponsors.map((sponsor, idx) => (
-                <div
-                  key={sponsor.id}
-                  className="group relative flex h-20 items-center justify-center rounded-xl border border-gray-200 bg-[#f9fafb] p-4 text-center"
-                >
-                  {sponsor.logoUrl ? (
-                    <Image
-                      src={sponsor.logoUrl}
-                      alt={sponsor.name}
-                      width={120}
-                      height={40}
-                      className="max-h-10 w-auto object-contain"
-                      unoptimized
-                    />
-                  ) : (
-                    <span className="truncate text-xs font-bold text-gray-700">
-                      {sponsor.name || `Logo ${idx + 1}`}
-                    </span>
-                  )}
+            {/* Existing Sponsor Logos, grouped by public placement */}
+            <div className="mb-5 space-y-5">
+              {(['top', 'bottom'] as const).map((placement) => {
+                const placementSponsors = content.sponsors.filter(
+                  (sponsor) => sponsor.placement === placement,
+                );
+                return (
+                  <section key={placement} aria-labelledby={`sponsors-${placement}-heading`}>
+                    <div className="mb-2 flex items-center gap-2">
+                      <h3
+                        id={`sponsors-${placement}-heading`}
+                        className="text-[10px] font-black tracking-[0.16em] text-gray-500 uppercase"
+                      >
+                        {placement === 'top' ? 'Top sponsors' : 'Bottom sponsors'}
+                      </h3>
+                      <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[9px] font-bold tracking-wider text-gray-500 uppercase">
+                        {placementSponsors.length} {placement}
+                      </span>
+                    </div>
+                    {placementSponsors.length ? (
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        {placementSponsors.map((sponsor, idx) => (
+                          <div
+                            key={sponsor.id}
+                            className="group relative flex h-20 items-center justify-center rounded-xl border border-gray-200 bg-[#f9fafb] p-4 text-center"
+                          >
+                            {sponsor.logoUrl ? (
+                              <Image
+                                src={sponsor.logoUrl}
+                                alt={sponsor.name}
+                                width={120}
+                                height={40}
+                                className="max-h-10 w-auto object-contain"
+                                unoptimized
+                              />
+                            ) : (
+                              <span className="truncate text-xs font-bold text-gray-700">
+                                {sponsor.name || `Logo ${idx + 1}`}
+                              </span>
+                            )}
 
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteSponsor(sponsor.id)}
-                    className="absolute top-1.5 right-1.5 rounded-full border border-gray-200 bg-white p-1 text-gray-400 opacity-0 shadow-2xs transition-opacity group-hover:opacity-100 hover:text-red-600"
-                    aria-label={`Remove sponsor ${sponsor.name}`}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
+                            <span
+                              className={`absolute bottom-1.5 left-1.5 rounded-full px-2 py-0.5 text-[8px] font-black tracking-wider uppercase ${
+                                placement === 'top'
+                                  ? 'border border-blue-200 bg-blue-50 text-blue-700'
+                                  : 'border border-gray-200 bg-white text-gray-500'
+                              }`}
+                            >
+                              {placement}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewSponsorName(sponsor.name);
+                                setNewSponsorLink(sponsor.websiteUrl);
+                                setNewSponsorLogoUrl(sponsor.logoUrl);
+                                setNewSponsorLogoFile(null);
+                                setNewSponsorLogoPreview('');
+                                setNewSponsorPlacement(sponsor.placement);
+                                setEditingSponsorId(sponsor.id);
+                                setIsAddingSponsor(true);
+                              }}
+                              className="absolute top-1.5 left-1.5 rounded-full border border-gray-200 bg-white p-1 text-gray-500 shadow-2xs transition-colors hover:border-gray-300 hover:text-gray-900"
+                              aria-label={`Edit sponsor ${sponsor.name}`}
+                              title={`Edit ${sponsor.name}`}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSponsor(sponsor.id)}
+                              className="absolute top-1.5 right-1.5 rounded-full border border-gray-200 bg-white p-1 text-gray-400 shadow-2xs transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                              aria-label={`Remove sponsor ${sponsor.name}`}
+                              title={`Remove ${sponsor.name}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-[11px] text-gray-500">
+                        No {placement} sponsors assigned.
+                      </p>
+                    )}
+                  </section>
+                );
+              })}
             </div>
 
             {/* Inline Add Sponsor Form */}
@@ -765,7 +833,7 @@ export function ContentManagementView() {
                 className="animate-in fade-in space-y-4 rounded-xl border border-[#FFD8BF] bg-[#FFF9F5] p-4"
               >
                 <h3 className="text-xs font-bold tracking-wider text-gray-900 uppercase">
-                  Add Sponsor Details
+                  {editingSponsorId ? 'Edit Sponsor Details' : 'Add Sponsor Details'}
                 </h3>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -794,6 +862,19 @@ export function ContentManagementView() {
                       placeholder="https://..."
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#FF5C00] focus:outline-hidden"
                     />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold tracking-wider text-gray-700 uppercase">
+                      Banner Placement
+                    </label>
+                    <select
+                      value={newSponsorPlacement}
+                      onChange={(e) => setNewSponsorPlacement(e.target.value as 'top' | 'bottom')}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs text-gray-900 focus:ring-1 focus:ring-[#FF5C00] focus:outline-hidden"
+                    >
+                      <option value="top">Top banner (below hero)</option>
+                      <option value="bottom">Bottom banner</option>
+                    </select>
                   </div>
                 </div>
 
@@ -867,7 +948,11 @@ export function ContentManagementView() {
                     disabled={isUploadingSponsor}
                     className="rounded-lg bg-[#FF5C00] px-4 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-[#E05200] disabled:cursor-wait disabled:opacity-60"
                   >
-                    {isUploadingSponsor ? 'Uploading & Saving...' : 'Save Sponsor'}
+                    {isUploadingSponsor
+                      ? 'Uploading & Saving...'
+                      : editingSponsorId
+                        ? 'Update Sponsor'
+                        : 'Save Sponsor'}
                   </button>
                 </div>
               </form>

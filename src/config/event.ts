@@ -16,7 +16,7 @@ export const EVENT = {
   shortName: 'Canadian Country Star',
   tagline: 'Ontario country music, live and unsigned.',
 
-  organizer: 'Hellion Entertainment',
+  organizer: 'Canadian Star Team',
 
   venue: {
     name: 'The Venue',

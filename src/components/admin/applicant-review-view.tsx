@@ -34,6 +34,7 @@ import {
   deleteArtistApplicationAction,
   updateArtistProfileStatusAction,
   updateApplicationReviewAction,
+  reviewArtistEditsAction,
 } from '@/server/actions/admin';
 
 const statusLabels: Record<AdminApplicationRecord['lifecycleStatus'], string> = {
@@ -104,6 +105,8 @@ export function ApplicantReviewView({
   const [app, setApp] = useState(initialApp);
   const [decision, setDecision] = useState<ReviewStatus | null>(null);
   const [reason, setReason] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const [editDecision, setEditDecision] = useState<'approve' | 'reject' | null>(null);
   const [internalNote, setInternalNote] = useState('');
   const [notes, setNotes] = useState<string[]>(
     app.reviewNotes ? app.reviewNotes.split('\n\n').filter(Boolean) : [],
@@ -204,6 +207,34 @@ export function ApplicantReviewView({
         return;
       }
       router.push('/admin/applications');
+      router.refresh();
+    });
+  };
+
+  const reviewEdits = () => {
+    if (editDecision === 'reject' && editReason.trim().length < 3) {
+      setError('Add a short reason for this edit decision.');
+      return;
+    }
+    startSaving(async () => {
+      setError(null);
+      const result = await reviewArtistEditsAction({
+        applicationId: app.id,
+        decision: editDecision!,
+        reason: editReason,
+        confirmed: true,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setApp((current) =>
+        editDecision === 'approve'
+          ? applyApprovedEdits(current)
+          : { ...current, pendingEdits: null, pendingEditsSubmittedAt: null },
+      );
+      setEditReason('');
+      setEditDecision(null);
       router.refresh();
     });
   };
@@ -325,6 +356,55 @@ export function ApplicantReviewView({
         >
           {error}
         </div>
+      )}
+
+      {app.pendingEdits && app.pendingEditsSubmittedAt && (
+        <section className="rounded-xl border-2 border-[#FF5C00]/40 bg-orange-50 p-5 shadow-xs">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+            <div>
+              <p className="text-[10px] font-black tracking-[0.18em] text-[#FF5C00] uppercase">
+                New edits awaiting approval
+              </p>
+              <h2 className="mt-1 text-xl font-black text-gray-900">
+                Compare the proposed profile changes
+              </h2>
+              <p className="mt-1 text-xs text-gray-600">
+                The public profile remains unchanged until an administrator approves these edits.
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setEditReason('');
+                  setEditDecision('reject');
+                }}
+                disabled={isSaving}
+                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
+              >
+                REJECT EDITS
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setEditReason('');
+                  setEditDecision('approve');
+                }}
+                disabled={isSaving}
+                className="rounded-lg bg-[#FF5C00] px-3 py-2 text-xs font-bold text-white hover:bg-[#e05200]"
+              >
+                APPROVE EDITS
+              </button>
+            </div>
+          </div>
+          <div className="mt-5 space-y-3">
+            {pendingDiffs(app).map((item) => (
+              <PendingDiffRow key={item.key} item={item} app={app} />
+            ))}
+          </div>
+        </section>
       )}
 
       {app.qualifyingShow && (
@@ -655,6 +735,79 @@ export function ApplicantReviewView({
         </div>
       )}
 
+      {editDecision && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black tracking-[0.18em] text-[#FF5C00] uppercase">
+                  Profile edit review
+                </p>
+                <h2 className="mt-1 text-lg font-bold text-gray-900">
+                  {editDecision === 'approve' ? 'Approve these edits?' : 'Reject these edits?'}
+                </h2>
+                <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                  {editDecision === 'approve'
+                    ? 'The proposed values will replace the current public profile immediately.'
+                    : 'The proposed values will be discarded and the current public profile will remain unchanged.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditDecision(null)}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {editDecision === 'reject' && (
+              <label
+                className="mt-5 block text-xs font-bold text-gray-700"
+                htmlFor="edit-review-reason"
+              >
+                Review reason sent to the artist
+                <textarea
+                  id="edit-review-reason"
+                  value={editReason}
+                  onChange={(event) => setEditReason(event.target.value)}
+                  rows={4}
+                  maxLength={1000}
+                  placeholder="Explain what needs to be changed..."
+                  className="mt-1.5 w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm font-normal text-gray-900 outline-none focus:border-[#FF5C00] focus:bg-white"
+                />
+                <span className="mt-1 block text-[11px] font-normal text-gray-500">
+                  A short note is required for a rejection.
+                </span>
+              </label>
+            )}
+            {error && (
+              <p className="mt-3 text-xs font-semibold text-red-600" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditDecision(null)}
+                className="rounded-lg px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={reviewEdits}
+                disabled={isSaving || (editDecision === 'reject' && editReason.trim().length < 3)}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold text-white disabled:opacity-50 ${editDecision === 'reject' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#FF5C00] hover:bg-[#e05200]'}`}
+              >
+                {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                {editDecision === 'approve' ? 'Approve edits' : 'Reject edits'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDeleteConfirmation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
@@ -701,6 +854,292 @@ export function ApplicantReviewView({
         </div>
       )}
     </div>
+  );
+}
+
+type PendingDiff = {
+  key: string;
+  label: string;
+  before: unknown;
+  after: unknown;
+  kind: 'text' | 'link' | 'list' | 'photo' | 'boolean';
+};
+
+function applyApprovedEdits(app: AdminApplicationRecord): AdminApplicationRecord {
+  const pending = app.pendingEdits ?? {};
+  const stringValue = (key: string, fallback: string) =>
+    typeof pending[key] === 'string' ? String(pending[key]).trim() : fallback;
+  const videos = Array.isArray(pending.performanceVideoUrls)
+    ? pending.performanceVideoUrls.filter(
+        (value): value is string => typeof value === 'string' && value.trim().length > 0,
+      )
+    : app.videoUrls;
+  const music = Array.isArray(pending.recordedMusicUrls)
+    ? pending.recordedMusicUrls.filter(
+        (value): value is string => typeof value === 'string' && value.trim().length > 0,
+      )
+    : Object.values(app.musicLinks);
+  const socialLinks = { ...app.socialLinks };
+  for (const key of ['instagram', 'tiktok', 'x', 'youtube', 'facebook']) {
+    if (typeof pending[key] === 'string') {
+      if (pending[key].trim()) socialLinks[key] = pending[key].trim();
+      else delete socialLinks[key];
+    }
+  }
+  const pendingPhotoKey = typeof pending.photoKey === 'string' ? pending.photoKey.trim() : null;
+  const locationCity = stringValue(
+    'locationCity',
+    app.location.split(',')[0]?.trim() ?? app.location,
+  );
+  const locationSuffix = app.location.includes(',')
+    ? app.location.slice(app.location.indexOf(','))
+    : '';
+  const actType =
+    pending.actType === 'solo' || pending.actType === 'duo' || pending.actType === 'band'
+      ? pending.actType
+      : app.actType;
+  return {
+    ...app,
+    stageName: stringValue('actName', app.stageName),
+    actType,
+    discipline: actType === 'band' ? 'Country band' : 'Country artist',
+    location: `${locationCity}${locationSuffix}`,
+    email: stringValue('contactEmail', app.email),
+    phone: stringValue('contactPhone', app.phone),
+    bio: stringValue('bio', app.bio),
+    websiteUrl: stringValue('websiteUrl', app.websiteUrl),
+    socialLinks,
+    musicLinks: Object.fromEntries(music.map((url, index) => [`link_${index + 1}`, url])),
+    audioTracks: music.map((url) => ({ title: 'Recorded music', duration: 'External link', url })),
+    musicMetadata: undefined,
+    videoUrls: videos,
+    videoUrl: videos[0],
+    primaryPhotoKey: pendingPhotoKey ?? app.primaryPhotoKey,
+    avatarUrl: pendingPhotoKey === null ? app.avatarUrl : app.pendingPhotoUrl,
+    coverPhotoUrl: pendingPhotoKey === null ? app.coverPhotoUrl : app.pendingPhotoUrl,
+    pendingPhotoUrl: null,
+    availability: {
+      ...app.availability,
+      allRequiredDates:
+        typeof pending.availableAllDates === 'boolean'
+          ? pending.availableAllDates
+          : app.availability.allRequiredDates,
+    },
+    eligibility: typeof pending.isEligible === 'boolean' ? pending.isEligible : app.eligibility,
+    acceptedRules:
+      typeof pending.acceptedRules === 'boolean' ? pending.acceptedRules : app.acceptedRules,
+    acceptedMediaRelease:
+      typeof pending.acceptedMediaRelease === 'boolean'
+        ? pending.acceptedMediaRelease
+        : app.acceptedMediaRelease,
+    pendingEdits: null,
+    pendingEditsSubmittedAt: null,
+  };
+}
+
+function pendingDiffs(app: AdminApplicationRecord): PendingDiff[] {
+  const pending = app.pendingEdits ?? {};
+  const current: Record<string, unknown> = {
+    actName: app.stageName,
+    actType: app.actType,
+    locationCity: app.location.split(',')[0]?.trim() ?? app.location,
+    contactEmail: app.email,
+    contactPhone: app.phone,
+    bio: app.bio,
+    performanceVideoUrls: app.videoUrls,
+    recordedMusicUrls: Object.values(app.musicLinks),
+    availableAllDates: app.availability.allRequiredDates,
+    isEligible: app.eligibility,
+    instagram: app.socialLinks.instagram,
+    tiktok: app.socialLinks.tiktok,
+    x: app.socialLinks.x,
+    youtube: app.socialLinks.youtube,
+    facebook: app.socialLinks.facebook,
+    websiteUrl: app.websiteUrl,
+    photoKey: app.primaryPhotoKey,
+    acceptedRules: app.pendingEdits?.acceptedRules === undefined ? undefined : app.acceptedRules,
+    acceptedMediaRelease:
+      app.pendingEdits?.acceptedMediaRelease === undefined ? undefined : app.acceptedMediaRelease,
+  };
+  const labels: Record<string, string> = {
+    actName: 'Artist / band name',
+    actType: 'Artist type',
+    locationCity: 'Location',
+    contactEmail: 'Contact email',
+    contactPhone: 'Phone',
+    bio: 'Biography',
+    performanceVideoUrls: 'Performance videos',
+    recordedMusicUrls: 'Recorded music',
+    availableAllDates: 'Availability',
+    isEligible: 'Eligibility',
+    instagram: 'Instagram',
+    tiktok: 'TikTok',
+    x: 'X',
+    youtube: 'YouTube',
+    facebook: 'Facebook',
+    websiteUrl: 'Website',
+    photoKey: 'Promotional photo',
+    acceptedRules: 'Competition rules',
+    acceptedMediaRelease: 'Media release',
+  };
+  const linkFields = new Set(['instagram', 'tiktok', 'x', 'youtube', 'facebook', 'websiteUrl']);
+  const listFields = new Set(['performanceVideoUrls', 'recordedMusicUrls']);
+  const booleanFields = new Set([
+    'availableAllDates',
+    'isEligible',
+    'acceptedRules',
+    'acceptedMediaRelease',
+  ]);
+  return Object.entries(pending)
+    .filter(([key, value]) => key in labels && key !== 'currentStep' && value !== undefined)
+    .map(([key, value]) => {
+      const beforeValue = current[key];
+      const before = normalizeDiffValue(beforeValue);
+      const after = normalizeDiffValue(value);
+      const changed =
+        key === 'photoKey' ? before !== after : JSON.stringify(before) !== JSON.stringify(after);
+      const kind: PendingDiff['kind'] =
+        key === 'photoKey'
+          ? 'photo'
+          : linkFields.has(key)
+            ? 'link'
+            : listFields.has(key)
+              ? 'list'
+              : booleanFields.has(key)
+                ? 'boolean'
+                : 'text';
+      return {
+        key,
+        label: labels[key]!,
+        before,
+        after,
+        kind,
+        changed,
+      };
+    })
+    .filter((item) => item.changed)
+    .map((item) => ({
+      key: item.key,
+      label: item.label,
+      before: item.before,
+      after: item.after,
+      kind: item.kind,
+    }));
+}
+
+function normalizeDiffValue(value: unknown): unknown {
+  if (Array.isArray(value))
+    return value
+      .filter((item) => typeof item === 'string' && item.trim())
+      .map((item) => String(item).trim());
+  if (typeof value === 'string') return value.trim();
+  return value ?? '';
+}
+
+function PendingDiffRow({ item, app }: { item: PendingDiff; app: AdminApplicationRecord }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2.5">
+        <span className="text-xs font-bold text-gray-900">{item.label}</span>
+        <span className="text-[10px] font-bold tracking-wider text-[#FF5C00] uppercase">
+          Changed
+        </span>
+      </div>
+      <div className="grid gap-0 divide-y divide-gray-100 md:grid-cols-2 md:divide-x md:divide-y-0">
+        <div className="p-4">
+          <p className="mb-2 text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+            Current public value
+          </p>
+          <DiffValue
+            value={item.before}
+            kind={item.kind}
+            imageUrl={item.kind === 'photo' ? app.avatarUrl : null}
+          />
+        </div>
+        <div className="bg-orange-50/30 p-4">
+          <p className="mb-2 text-[10px] font-bold tracking-wider text-[#FF5C00] uppercase">
+            Proposed edit
+          </p>
+          <DiffValue
+            value={item.after}
+            kind={item.kind}
+            imageUrl={item.kind === 'photo' ? app.pendingPhotoUrl : null}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiffValue({
+  value,
+  kind,
+  imageUrl,
+}: {
+  value: unknown;
+  kind: PendingDiff['kind'];
+  imageUrl: string | null;
+}) {
+  if (kind === 'photo') {
+    return imageUrl ? (
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+        <Image
+          src={imageUrl}
+          alt="Promotional photo preview"
+          width={1200}
+          height={900}
+          unoptimized
+          className="block max-h-72 w-full object-contain"
+        />
+      </div>
+    ) : (
+      <span className="text-xs text-gray-400">No photo</span>
+    );
+  }
+  if (kind === 'list') {
+    const values = Array.isArray(value) ? value : [];
+    return values.length ? (
+      <div className="space-y-2">
+        {values.map((item) => (
+          <a
+            key={String(item)}
+            href={String(item)}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-[#FF5C00]/50 hover:text-[#FF5C00]"
+          >
+            <span className="min-w-0 truncate">{String(item)}</span>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#FF5C00]" />
+          </a>
+        ))}
+      </div>
+    ) : (
+      <span className="text-xs text-gray-400">None</span>
+    );
+  }
+  if (kind === 'link' && typeof value === 'string' && value) {
+    return (
+      <a
+        href={value}
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-start justify-between gap-2 text-xs font-semibold break-all text-gray-800 hover:text-[#FF5C00]"
+      >
+        <span>{value}</span>
+        <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#FF5C00]" />
+      </a>
+    );
+  }
+  if (kind === 'boolean')
+    return (
+      <span className="text-xs font-semibold text-gray-700">
+        {value ? 'Confirmed' : 'Not confirmed'}
+      </span>
+    );
+  return (
+    <p className="text-xs leading-relaxed whitespace-pre-wrap text-gray-700">
+      {typeof value === 'string' && value ? value : 'Not provided'}
+    </p>
   );
 }
 

@@ -134,6 +134,17 @@ export const applications = pgTable(
     reviewedBy: text('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
 
+    /**
+     * Artist edits made after an accepted application. These remain isolated
+     * from the public artist row until an administrator approves them.
+     */
+    pendingEdits: jsonb('pending_edits').$type<Record<string, unknown> | null>(),
+    pendingEditsSubmittedAt: timestamp('pending_edits_submitted_at', { withTimezone: true }),
+    pendingEditsReviewedAt: timestamp('pending_edits_reviewed_at', { withTimezone: true }),
+    pendingEditsReviewedBy: text('pending_edits_reviewed_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { and, asc, count, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   artists,
@@ -72,8 +72,8 @@ export async function getShows() {
       label: shows.label,
       type: shows.type,
       showDate: shows.showDate,
-      doorsTime: shows.doorsTime,
       startTime: shows.startTime,
+      doorsTime: shows.doorsTime,
       contingencyDate: shows.contingencyDate,
       status: shows.status,
       statusNote: shows.statusNote,
@@ -194,6 +194,69 @@ export async function getPublicGrandFinalists() {
       ),
     )
     .orderBy(asc(showArtists.performanceOrder), asc(artists.actName));
+}
+
+/** Public tournament bracket assembled from the operational show assignments. */
+export async function getPublicTournamentLeaderboard() {
+  const rows = await db
+    .select({
+      showId: shows.id,
+      showKey: shows.key,
+      showLabel: shows.label,
+      showType: shows.type,
+      showDate: shows.showDate,
+      startTime: shows.startTime,
+      status: shows.status,
+      statusNote: shows.statusNote,
+      venueName: shows.venueName,
+      ticketUrl: shows.ticketUrl,
+      displayOrder: shows.displayOrder,
+      artist: publicArtistColumns,
+      performanceOrder: showArtists.performanceOrder,
+      advancedAt: showArtists.advanced,
+      winnerAt: showArtists.winnerAt,
+    })
+    .from(shows)
+    .leftJoin(showArtists, eq(showArtists.showId, shows.id))
+    .leftJoin(artists, eq(artists.id, showArtists.artistId))
+    .leftJoin(applications, eq(applications.artistId, artists.id))
+    .where(
+      or(
+        isNull(showArtists.artistId),
+        and(
+          eq(artists.profileStatus, 'published'),
+          inArray(applications.status, ['shortlisted', 'finalist']),
+        ),
+      ),
+    )
+    .orderBy(asc(shows.displayOrder), asc(showArtists.performanceOrder), asc(artists.actName));
+
+  const grouped = new Map<string, (typeof rows)[number][]>();
+  for (const row of rows) grouped.set(row.showId, [...(grouped.get(row.showId) ?? []), row]);
+  return rows
+    .filter(
+      (row, index) => rows.findIndex((candidate) => candidate.showId === row.showId) === index,
+    )
+    .map((row) => ({
+      id: row.showId,
+      key: row.showKey,
+      label: row.showLabel,
+      type: row.showType,
+      showDate: row.showDate,
+      startTime: row.startTime,
+      status: row.status,
+      statusNote: row.statusNote,
+      venueName: row.venueName,
+      ticketUrl: row.ticketUrl,
+      assignedArtists: (grouped.get(row.showId) ?? [])
+        .filter((entry) => entry.artist?.id)
+        .map((entry) => ({
+          ...entry.artist!,
+          performanceOrder: entry.performanceOrder,
+          advancedAt: entry.advancedAt,
+          winnerAt: entry.winnerAt,
+        })),
+    }));
 }
 
 /**

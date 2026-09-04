@@ -13,7 +13,7 @@ export function Brand({ onClick }: { onClick?: () => void }) {
 }
 
 interface SiteHeaderProps {
-  activeNav?: 'competition' | 'artists' | 'events' | 'judges';
+  activeNav?: 'competition' | 'artists' | 'events' | 'judges' | 'leaderboard';
   isHome?: boolean;
 }
 
@@ -66,6 +66,12 @@ export function SiteHeader({ activeNav, isHome = false }: SiteHeaderProps) {
           >
             JUDGES
           </Link>
+          <Link
+            href="/leaderboard"
+            className={activeNav === 'leaderboard' ? 'active-nav' : undefined}
+          >
+            LEADERBOARD
+          </Link>
         </nav>
 
         <div className="header-actions">
@@ -96,14 +102,15 @@ export function SiteHeader({ activeNav, isHome = false }: SiteHeaderProps) {
             <Link onClick={navigateToSection('#journey')} href={getHref('#journey')}>
               COMPETITION
             </Link>
-            <Link href="/artists">
-              ARTISTS
-            </Link>
+            <Link href="/artists">ARTISTS</Link>
             <Link onClick={navigateToSection('#schedule')} href={getHref('#schedule')}>
               EVENTS
             </Link>
             <Link onClick={navigateToSection('#judges')} href={getHref('#judges')}>
               JUDGES
+            </Link>
+            <Link onClick={() => setMenuOpen(false)} href="/leaderboard">
+              LEADERBOARD
             </Link>
             <div className="mobile-nav-buttons">
               <Link
@@ -125,5 +132,30 @@ export function SiteHeader({ activeNav, isHome = false }: SiteHeaderProps) {
         )}
       </div>
     </header>
+  );
+}
+
+export function SiteFooter() {
+  return (
+    <footer>
+      <div className="container-content footer-top">
+        <div className="footer-brand">
+          <Brand />
+          <p>
+            Celebrating the authentic voices of Ontario’s country music scene. The ultimate
+            launchpad for emerging artists.
+          </p>
+        </div>
+        <div className="footer-nav">
+          <Link href="/privacy">Privacy Policy</Link>
+          <Link href="/terms">Terms of Service</Link>
+          <Link href="/rules">Rules</Link>
+          <Link href="/contact">Contact</Link>
+        </div>
+      </div>
+      <div className="container-content footer-bottom">
+        <span>© 2026 The Next Great Canadian Country Star. All rights reserved.</span>
+      </div>
+    </footer>
   );
 }

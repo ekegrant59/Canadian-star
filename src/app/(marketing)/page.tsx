@@ -205,6 +205,7 @@ export default async function HomePage() {
           name: sponsor.name,
           websiteUrl: sponsor.websiteUrl,
           logoUrl: publicMediaUrl(sponsor.logoKey),
+          placement: sponsor.placement === 'top' ? 'top' : 'bottom',
         }))}
         viewModelOverride={{
           votingArtists,

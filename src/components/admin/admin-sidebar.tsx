@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   FileText,
@@ -11,6 +12,7 @@ import {
   Mail,
   X,
   Settings,
+  ShieldCheck,
 } from 'lucide-react';
 import { useSession } from '@/lib/auth/client';
 
@@ -22,6 +24,7 @@ interface AdminSidebarProps {
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { label: 'Applications', href: '/admin/applications', icon: FileText },
+  { label: 'Artist reapproval', href: '/admin/reapproval', icon: ShieldCheck },
   { label: 'Competition & Events', href: '/admin/events', icon: Calendar },
   { label: 'Content', href: '/admin/content', icon: Newspaper },
   { label: 'Voting', href: '/admin/voting', icon: Vote },
@@ -34,6 +37,28 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   const { data: session } = useSession();
   const adminAccessLevel = (session?.user as { adminAccessLevel?: string } | undefined)
     ?.adminAccessLevel;
+  const [counts, setCounts] = useState({ pendingApplications: 0, pendingEdits: 0 });
+  useEffect(() => {
+    let cancelled = false;
+    const loadCounts = () => {
+      fetch('/api/admin/notifications')
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (!cancelled && data)
+            setCounts({
+              pendingApplications: Number(data.pendingApplications ?? 0),
+              pendingEdits: Number(data.pendingEdits ?? 0),
+            });
+        })
+        .catch(() => undefined);
+    };
+    loadCounts();
+    const timer = window.setInterval(loadCounts, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [pathname]);
   const visibleNavItems = NAV_ITEMS.filter(
     (item) => item.href !== '/admin/settings' || adminAccessLevel === 'super',
   );
@@ -97,7 +122,19 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                 }`}
               >
                 <Icon className={`h-5 w-5 ${isActive ? 'text-[#FF5C00]' : 'text-[#888888]'}`} />
-                <span>{item.label}</span>
+                <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                  <span>{item.label}</span>
+                  {item.href === '/admin/reapproval' && counts.pendingEdits > 0 && (
+                    <span className="min-w-5 rounded-full bg-[#FF5C00] px-1.5 py-0.5 text-center text-[10px] font-black text-white">
+                      {counts.pendingEdits}
+                    </span>
+                  )}
+                  {item.href === '/admin/applications' && counts.pendingApplications > 0 && (
+                    <span className="min-w-5 rounded-full bg-[#FF5C00] px-1.5 py-0.5 text-center text-[10px] font-black text-white">
+                      {counts.pendingApplications}
+                    </span>
+                  )}
+                </span>
               </Link>
             );
           })}

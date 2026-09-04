@@ -10,8 +10,7 @@ interface SubmittedStepProps {
   status: string | null;
   competitionStage: 'applications' | 'voting' | 'anticipation' | 'finalists';
   rejectionReason: string | null;
-  canEdit: boolean;
-  onEdit: () => void;
+  pendingEditKeys: string[];
 }
 
 export function SubmittedStep({
@@ -21,8 +20,7 @@ export function SubmittedStep({
   status,
   competitionStage,
   rejectionReason,
-  canEdit,
-  onEdit,
+  pendingEditKeys,
 }: SubmittedStepProps) {
   return (
     <ArtistProfileView
@@ -32,8 +30,7 @@ export function SubmittedStep({
       status={status}
       competitionStage={competitionStage}
       rejectionReason={rejectionReason}
-      canEdit={canEdit}
-      onEdit={onEdit}
+      pendingEditKeys={pendingEditKeys}
     />
   );
 }

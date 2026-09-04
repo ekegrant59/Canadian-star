@@ -63,6 +63,14 @@ export interface ArtistApplicationStageEmailProps {
   dashboardUrl?: string;
 }
 
+export interface ArtistEditDecisionEmailProps {
+  artistName: string;
+  actName: string;
+  approved: boolean;
+  reason: string;
+  dashboardUrl?: string;
+}
+
 export interface VotingOtpEmailProps {
   artistName: string;
   code: string;

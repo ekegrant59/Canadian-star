@@ -1,7 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { User, PlayCircle, Calendar, CheckSquare, Send, Settings, LogOut } from 'lucide-react';
+import {
+  User,
+  PlayCircle,
+  Calendar,
+  CheckSquare,
+  Send,
+  Settings,
+  LogOut,
+  Pencil,
+} from 'lucide-react';
 
 export type ApplicationStepIndex = 1 | 2 | 3 | 4 | 5;
 
@@ -9,6 +18,8 @@ interface ArtistSidebarProps {
   currentStep: ApplicationStepIndex;
   maxCompletedStep: number;
   onSelectStep: (step: ApplicationStepIndex) => void;
+  canEditProfile: boolean;
+  onEditProfile: () => void;
 }
 
 const SIDEBAR_ITEMS: {
@@ -23,7 +34,13 @@ const SIDEBAR_ITEMS: {
   { step: 5, label: 'Submit', icon: Send },
 ];
 
-export function ArtistSidebar({ currentStep, maxCompletedStep, onSelectStep }: ArtistSidebarProps) {
+export function ArtistSidebar({
+  currentStep,
+  maxCompletedStep,
+  onSelectStep,
+  canEditProfile,
+  onEditProfile,
+}: ArtistSidebarProps) {
   const isProfileView = currentStep === 5;
 
   return (
@@ -34,15 +51,23 @@ export function ArtistSidebar({ currentStep, maxCompletedStep, onSelectStep }: A
 
         <nav className="sidebar-nav-list" aria-label="Step Navigation">
           {isProfileView ? (
-            <button
-              type="button"
-              className="sidebar-nav-item active"
-              onClick={() => onSelectStep(5)}
-              aria-current="step"
-            >
-              <User size={18} />
-              <span>Artist Info</span>
-            </button>
+            <>
+              <button
+                type="button"
+                className="sidebar-nav-item active"
+                onClick={() => onSelectStep(5)}
+                aria-current="step"
+              >
+                <User size={18} />
+                <span>Artist Info</span>
+              </button>
+              {canEditProfile && (
+                <button type="button" className="sidebar-nav-item" onClick={onEditProfile}>
+                  <Pencil size={18} />
+                  <span>Edit Profile</span>
+                </button>
+              )}
+            </>
           ) : (
             SIDEBAR_ITEMS.map((item) => {
               const Icon = item.icon;

@@ -46,6 +46,7 @@ export interface SponsorRecord {
   websiteUrl: string;
   logoUrl: string;
   tier: 'title' | 'presenting' | 'community';
+  placement: 'top' | 'bottom';
 }
 
 export interface ContentManagementState {
@@ -319,6 +320,7 @@ export const INITIAL_CONTENT_STATE: ContentManagementState = {
       websiteUrl: 'https://kawarthasoundworks.example.com',
       logoUrl: '/designs/admin/Admin - Content Management.svg',
       tier: 'title',
+      placement: 'top',
     },
     {
       id: 'spn-002',
@@ -326,6 +328,7 @@ export const INITIAL_CONTENT_STATE: ContentManagementState = {
       websiteUrl: 'https://ontariomusic.example.ca',
       logoUrl: '/designs/admin/Admin - Content Management.svg',
       tier: 'presenting',
+      placement: 'bottom',
     },
   ],
   overview: {

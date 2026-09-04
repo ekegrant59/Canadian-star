@@ -57,6 +57,8 @@ export const showArtists = pgTable(
     performanceOrder: integer('performance_order'),
     /** Set when this artist advances from a qualifier to the Grand Final. */
     advanced: timestamp('advanced_at', { withTimezone: true }),
+    /** Set when this artist wins the Grand Final. Only used on the final show. */
+    winnerAt: timestamp('winner_at', { withTimezone: true }),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

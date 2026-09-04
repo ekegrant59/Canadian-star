@@ -273,7 +273,6 @@ export default function ArtistsRosterPage() {
           <div className="footer-nav">
             <Link href="/privacy">Privacy Policy</Link>
             <Link href="/terms">Terms of Service</Link>
-            <Link href="/sponsorship">Sponsorship</Link>
             <Link href="/contact">Contact</Link>
           </div>
         </div>

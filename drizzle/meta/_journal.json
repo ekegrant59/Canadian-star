@@ -71,6 +71,20 @@
       "when": 1787251000000,
       "tag": "0009_otp_resend_backoff",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788360062590,
+      "tag": "0010_dear_george_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788469838261,
+      "tag": "0011_flawless_felicia_hardy",
+      "breakpoints": true
     }
   ]
 }

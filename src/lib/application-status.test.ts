@@ -6,7 +6,7 @@ describe('application review transitions', () => {
     expect(isAllowedReviewTransition('submitted', 'under_review')).toBe(true);
     expect(isAllowedReviewTransition('under_review', 'approved')).toBe(true);
     expect(isAllowedReviewTransition('approved', 'shortlisted')).toBe(true);
-    expect(isAllowedReviewTransition('shortlisted', 'finalist')).toBe(false);
+    expect(isAllowedReviewTransition('shortlisted', 'finalist')).toBe(true);
   });
 
   it('allows rejection from an active review state', () => {

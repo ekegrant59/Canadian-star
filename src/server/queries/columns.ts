@@ -69,6 +69,7 @@ export const publicSponsorColumns = {
   description: sponsors.description,
   requiresAgeGate: sponsors.requiresAgeGate,
   displayOrder: sponsors.displayOrder,
+  placement: sponsors.placement,
 } as const;
 
 export const publicPrizeColumns = {

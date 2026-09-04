@@ -1,0 +1,1 @@
+ALTER TABLE "show_artists" ADD COLUMN "winner_at" timestamp with time zone;

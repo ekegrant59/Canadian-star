@@ -68,6 +68,7 @@ export const sponsors = pgTable(
     requiresAgeGate: boolean('requires_age_gate').notNull().default(false),
 
     displayOrder: integer('display_order').notNull().default(0),
+    placement: text('placement').notNull().default('bottom'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

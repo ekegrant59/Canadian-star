@@ -197,10 +197,25 @@ export async function saveApplicationDraftAction(
      * away believing an edit landed, when the review queue already read the old
      * version.
      */
-    if (['approved', 'shortlisted', 'finalist', 'withdrawn'].includes(rows.status)) {
-      return actionError(
-        'This application is locked after advancement and can no longer be edited.',
-      );
+    if (rows.status === 'withdrawn') {
+      return actionError('This application has been withdrawn and can no longer be edited.');
+    }
+
+    const accepted = ['approved', 'shortlisted', 'finalist'].includes(rows.status);
+    if (accepted) {
+      await db
+        .update(applications)
+        .set({
+          pendingEdits: parsed.data,
+          currentStep: parsed.data.currentStep ?? 1,
+          pendingEditsSubmittedAt: null,
+          pendingEditsReviewedAt: null,
+          pendingEditsReviewedBy: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(applications.id, rows.applicationId));
+      revalidatePath('/artist');
+      return actionOk({ savedAt: new Date().toISOString() });
     }
 
     await db.transaction(async (tx) => {
@@ -217,6 +232,10 @@ export async function saveApplicationDraftAction(
           status: 'draft',
           submittedAt: null,
           rejectionReason: null,
+          pendingEdits: null,
+          pendingEditsSubmittedAt: null,
+          pendingEditsReviewedAt: null,
+          pendingEditsReviewedBy: null,
         })
         .where(
           and(
@@ -251,15 +270,6 @@ export async function submitApplicationAction(
     return authFailure(error) ?? actionError(GENERIC_ERROR);
   }
 
-  /**
-   * The application window (§19), checked server-side. A closed window that
-   * only hides a button isn't closed.
-   */
-  const applicationsOpen = await isCompetitionStageActive('applications');
-  if (!applicationsOpen) {
-    return actionError('Applications are not open at the moment.');
-  }
-
   const parsed = applicationSubmitSchema.safeParse(input);
   if (!parsed.success) {
     return actionError(
@@ -271,8 +281,33 @@ export async function submitApplicationAction(
   try {
     const rows = await ensureApplicationRows(user.id, parsed.data.actName);
 
-    if (['approved', 'shortlisted', 'finalist', 'withdrawn'].includes(rows.status)) {
-      return actionError('This application is locked after advancement.');
+    const applicationsOpen = await isCompetitionStageActive('applications');
+    const accepted = ['approved', 'shortlisted', 'finalist'].includes(rows.status);
+    if (!applicationsOpen && !accepted) {
+      return actionError('Applications are not open at the moment.');
+    }
+    if (rows.status === 'withdrawn') {
+      return actionError('This application has been withdrawn.');
+    }
+
+    if (accepted) {
+      const submittedAt = new Date();
+      await db
+        .update(applications)
+        .set({
+          pendingEdits: parsed.data,
+          pendingEditsSubmittedAt: submittedAt,
+          pendingEditsReviewedAt: null,
+          pendingEditsReviewedBy: null,
+          currentStep: 5,
+          updatedAt: submittedAt,
+        })
+        .where(eq(applications.id, rows.applicationId));
+      revalidatePath('/artist');
+      return actionOk({
+        applicationId: rows.applicationId,
+        submittedAt: submittedAt.toISOString(),
+      });
     }
 
     const submittedAt = new Date();
@@ -291,6 +326,10 @@ export async function submitApplicationAction(
           submittedAt,
           acceptedPrivacyPolicy: true,
           currentStep: 5,
+          pendingEdits: null,
+          pendingEditsSubmittedAt: null,
+          pendingEditsReviewedAt: null,
+          pendingEditsReviewedBy: null,
         })
         /**
          * Scoped on status='draft' as well as id. Two submits racing off a

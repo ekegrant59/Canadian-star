@@ -48,8 +48,7 @@ interface ArtistProfileViewProps {
   status?: string | null;
   competitionStage?: 'applications' | 'voting' | 'anticipation' | 'finalists';
   rejectionReason?: string | null;
-  canEdit?: boolean;
-  onEdit?: () => void;
+  pendingEditKeys?: string[];
 }
 
 export function ArtistProfileView({
@@ -57,8 +56,7 @@ export function ArtistProfileView({
   status = 'submitted',
   competitionStage = 'applications',
   rejectionReason,
-  canEdit = false,
-  onEdit,
+  pendingEditKeys = [],
 }: ArtistProfileViewProps) {
   const [copiedLink, setCopiedLink] = useState(false);
   const bioText = formData.biography || 'No biography was provided with this application.';
@@ -96,6 +94,7 @@ export function ArtistProfileView({
     withdrawn: { label: 'Withdrawn', detail: 'This application is no longer active.' },
   };
   const currentStatus = statusCopy[status ?? 'submitted'] ?? statusCopy.submitted!;
+  const hasPending = (...keys: string[]) => keys.some((key) => pendingEditKeys.includes(key));
 
   const handleShareLink = () => {
     const url =
@@ -130,7 +129,7 @@ export function ArtistProfileView({
         </div>
       )}
 
-      {(status === 'rejected' || (canEdit && onEdit)) && (
+      {status === 'rejected' && (
         <section className="mb-6 border border-[#2a2a2a] bg-[#1b1a1a] p-5 sm:p-6">
           {status === 'rejected' && (
             <div className="mt-4 flex gap-3 border border-red-900/60 bg-red-950/30 p-4">
@@ -143,15 +142,6 @@ export function ArtistProfileView({
               </div>
             </div>
           )}
-          {/* {canEdit && onEdit && (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="bg-primary mt-4 rounded-lg px-4 py-2 text-xs font-bold text-black hover:bg-[#ff7a2b]"
-            >
-              EDIT AND RESUBMIT APPLICATION
-            </button>
-          )} */}
         </section>
       )}
 
@@ -178,13 +168,17 @@ export function ArtistProfileView({
               </div>
               <h1 className="profile-hero-name">{artistName}</h1>
               <p className="profile-hero-tagline">{artistTagline}</p>
+              {hasPending('actName', 'locationCity', 'photoKey') && <PendingBadge />}
             </div>
           </div>
 
           {/* 2. About the Artist Card */}
           <div className="profile-card profile-about-card">
             <div className="profile-card-header">
-              <h2 className="profile-card-title">About the Artist</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="profile-card-title">About the Artist</h2>
+                {hasPending('bio') && <PendingBadge />}
+              </div>
             </div>
 
             <div className="profile-bio-text">
@@ -204,6 +198,7 @@ export function ArtistProfileView({
                 <div className="flex items-center gap-2 text-base font-bold text-white">
                   <Play size={18} className="text-primary fill-primary" />
                   <span>Live Performance</span>
+                  {hasPending('performanceVideoUrls') && <PendingBadge />}
                 </div>
               </div>
 
@@ -242,6 +237,7 @@ export function ArtistProfileView({
                     <div className="bg-primary h-1.5 w-1.5 rounded-full" />
                   </div>
                   <span>Recorded Music</span>
+                  {hasPending('recordedMusicUrls') && <PendingBadge />}
                 </div>
               </div>
 
@@ -316,7 +312,12 @@ export function ArtistProfileView({
 
           {/* Widget 3: Connect */}
           <div className="profile-card profile-connect-widget">
-            <h3 className="profile-connect-title">Connect</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="profile-connect-title">Connect</h3>
+              {hasPending('instagram', 'tiktok', 'x', 'youtube', 'facebook', 'websiteUrl') && (
+                <PendingBadge />
+              )}
+            </div>
             <div className="mt-3 flex flex-col gap-2">
               {connectLinks.map((link) => (
                 <a
@@ -342,7 +343,12 @@ export function ArtistProfileView({
           </div>
 
           <div className="profile-card profile-connect-widget">
-            <h3 className="profile-connect-title">Submitted Contact Details</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="profile-connect-title">Submitted Contact Details</h3>
+              {hasPending('contactEmail', 'contactPhone', 'availableAllDates', 'isEligible') && (
+                <PendingBadge />
+              )}
+            </div>
             <div className="mt-3 flex flex-col gap-2 text-xs text-[#e5e2e1]">
               <span>
                 <strong className="text-text-subtle">Email:</strong>{' '}
@@ -365,5 +371,13 @@ export function ArtistProfileView({
         </div>
       </div>
     </div>
+  );
+}
+
+function PendingBadge() {
+  return (
+    <span className="inline-flex items-center rounded-full border border-[#FF8A5B]/50 bg-[#2b1710] px-2 py-0.5 text-[9px] font-bold tracking-[0.12em] text-[#FFB59A] uppercase">
+      Awaiting approval
+    </span>
   );
 }

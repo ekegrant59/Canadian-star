@@ -44,6 +44,8 @@ export type ArtistApplication = {
   acceptedRules: boolean;
   acceptedMediaRelease: boolean;
   acceptedPrivacyPolicy: boolean;
+  pendingEdits: Record<string, unknown> | null;
+  pendingEditsSubmittedAt: Date | null;
 };
 
 /**
@@ -84,6 +86,8 @@ export async function getApplicationForUser(userId: string): Promise<ArtistAppli
       acceptedRules: applications.acceptedRules,
       acceptedMediaRelease: applications.acceptedMediaRelease,
       acceptedPrivacyPolicy: applications.acceptedPrivacyPolicy,
+      pendingEdits: applications.pendingEdits,
+      pendingEditsSubmittedAt: applications.pendingEditsSubmittedAt,
     })
     .from(artists)
     .innerJoin(applications, eq(applications.artistId, artists.id))

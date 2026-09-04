@@ -18,6 +18,9 @@ export function toFormData(
 
   const social = application.socialLinks ?? {};
   const music = Object.values(application.musicLinks ?? {}).filter(Boolean);
+  const pending = application.pendingEdits ?? {};
+  const value = <T>(key: string, fallback: T): T =>
+    pending[key] === undefined ? fallback : (pending[key] as T);
 
   const videos =
     application.performanceVideoUrls.length > 0
@@ -27,15 +30,18 @@ export function toFormData(
         : [];
 
   return {
-    artistName: application.actName === 'Untitled application' ? '' : application.actName,
+    artistName: value(
+      'actName',
+      application.actName === 'Untitled application' ? '' : application.actName,
+    ),
     publicSlug: application.slug,
-    artistType: application.actType,
-    primaryLocation: application.locationCity ?? '',
-    contactEmail: application.contactEmail ?? '',
-    phoneNumber: application.contactPhone ?? '',
-    biography: application.bio ?? '',
+    artistType: value('actType', application.actType),
+    primaryLocation: value('locationCity', application.locationCity ?? ''),
+    contactEmail: value('contactEmail', application.contactEmail ?? ''),
+    phoneNumber: value('contactPhone', application.contactPhone ?? ''),
+    biography: value('bio', application.bio ?? ''),
 
-    photoKey: application.primaryPhotoKey,
+    photoKey: value('photoKey', application.primaryPhotoKey),
     photoUrl,
     // Transient browser state: a stored photo has no File object behind it.
     promotionalPhoto: null,
@@ -44,20 +50,26 @@ export function toFormData(
     promotionalPhotoSize: null,
 
     // The form renders one empty row when a list is empty.
-    performanceVideoUrls: videos.length > 0 ? videos : [''],
-    recordedMusicUrls: music.length > 0 ? music : [''],
+    performanceVideoUrls:
+      ((pending.performanceVideoUrls as string[] | undefined) ?? videos).filter(Boolean).length > 0
+        ? ((pending.performanceVideoUrls as string[] | undefined) ?? videos)
+        : [''],
+    recordedMusicUrls:
+      ((pending.recordedMusicUrls as string[] | undefined) ?? music).filter(Boolean).length > 0
+        ? ((pending.recordedMusicUrls as string[] | undefined) ?? music)
+        : [''],
 
-    instagramHandle: social.instagram ?? '',
-    tiktokHandle: social.tiktok ?? '',
-    xHandle: social.x ?? '',
-    youtubeHandle: social.youtube ?? '',
-    facebookHandle: social.facebook ?? '',
-    websiteUrl: application.websiteUrl ?? '',
+    instagramHandle: value('instagram', social.instagram ?? ''),
+    tiktokHandle: value('tiktok', social.tiktok ?? ''),
+    xHandle: value('x', social.x ?? ''),
+    youtubeHandle: value('youtube', social.youtube ?? ''),
+    facebookHandle: value('facebook', social.facebook ?? ''),
+    websiteUrl: value('websiteUrl', application.websiteUrl ?? ''),
 
-    availableAllDates: application.availableAllDates ?? false,
-    isAgeAndResidencyEligible: application.isOfAge ?? false,
-    agreeCompetitionRules: application.acceptedRules,
-    agreeMediaRelease: application.acceptedMediaRelease,
+    availableAllDates: value('availableAllDates', application.availableAllDates ?? false),
+    isAgeAndResidencyEligible: value('isEligible', application.isOfAge ?? false),
+    agreeCompetitionRules: value('acceptedRules', application.acceptedRules),
+    agreeMediaRelease: value('acceptedMediaRelease', application.acceptedMediaRelease),
 
     /**
      * Never restored from storage. The §4.2 accuracy attestation has to be a

@@ -157,7 +157,13 @@ export interface LandingPageProps {
     severity: string;
   } | null;
   judges?: Array<{ id: string; name: string; role: string; bio: string; imageUrl: string | null }>;
-  sponsors?: Array<{ id: string; name: string; websiteUrl: string | null; logoUrl: string | null }>;
+  sponsors?: Array<{
+    id: string;
+    name: string;
+    websiteUrl: string | null;
+    logoUrl: string | null;
+    placement?: 'top' | 'bottom';
+  }>;
   onSelectArtist?: (artist: VotingArtist) => void;
   onVoteSubmit?: (artistId: string) => void;
   onCastVoteClick?: () => void;
@@ -204,6 +210,8 @@ export function LandingPage({
       copy: judge.bio,
       image: judge.imageUrl,
     })) ?? [];
+  const topSponsors = sponsors?.filter((sponsor) => sponsor.placement === 'top') ?? [];
+  const bottomSponsors = sponsors?.filter((sponsor) => sponsor.placement !== 'top') ?? [];
 
   const [journeyIndex, setJourneyIndex] = useState(0);
   const [scheduleIndex, setScheduleIndex] = useState(0);
@@ -388,6 +396,8 @@ export function LandingPage({
 
       {/* 1. Stage-Specific Hero Section */}
       <StageHero viewModel={viewModel} />
+
+      <SponsorMarquee sponsors={topSponsors} label="OFFICIAL PARTNERS" />
 
       {/* 2. Competition Summary / Stats */}
       <section className="intro-section section-pad" id="about">
@@ -719,46 +729,7 @@ export function LandingPage({
       </section>
 
       {/* 11. Partners / Sponsors Marquee */}
-      <section className="partners">
-        <span>OFFICIAL PARTNERS</span>
-        <div className="marquee-container no-scrollbar">
-          <div className="marquee-track">
-            {[...Array(3)].map((_, setIdx) => (
-              <div className="marquee-group" key={setIdx}>
-                {sponsors?.length ? (
-                  sponsors.map((sponsor) => {
-                    const sponsorLogo = sponsor.logoUrl ? (
-                      <Image
-                        src={sponsor.logoUrl}
-                        width={160}
-                        height={36}
-                        unoptimized
-                        alt={sponsor.name}
-                      />
-                    ) : (
-                      <strong>{sponsor.name}</strong>
-                    );
-                    return sponsor.websiteUrl ? (
-                      <a
-                        key={`${setIdx}-${sponsor.id}`}
-                        href={sponsor.websiteUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {sponsorLogo}
-                      </a>
-                    ) : (
-                      <span key={`${setIdx}-${sponsor.id}`}>{sponsorLogo}</span>
-                    );
-                  })
-                ) : (
-                  <span>PARTNERS TO BE ANNOUNCED</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <SponsorMarquee sponsors={bottomSponsors} label="OFFICIAL PARTNERS" />
 
       {/* 12. Footer */}
       <footer>
@@ -773,7 +744,6 @@ export function LandingPage({
           <div className="footer-nav">
             <Link href="/privacy">Privacy Policy</Link>
             <Link href="/terms">Terms of Service</Link>
-            <Link href="/sponsorship">Sponsorship</Link>
             <Link href="/contact">Contact</Link>
           </div>
         </div>
@@ -782,5 +752,56 @@ export function LandingPage({
         </div>
       </footer>
     </main>
+  );
+}
+
+function SponsorMarquee({
+  sponsors,
+  label,
+}: {
+  sponsors: Array<{ id: string; name: string; websiteUrl: string | null; logoUrl: string | null }>;
+  label: string;
+}) {
+  return (
+    <section className="partners">
+      <span>{label}</span>
+      <div className="marquee-container no-scrollbar">
+        <div className="marquee-track">
+          {[...Array(3)].map((_, setIdx) => (
+            <div className="marquee-group" key={setIdx}>
+              {sponsors.length ? (
+                sponsors.map((sponsor) => {
+                  const sponsorLogo = sponsor.logoUrl ? (
+                    <Image
+                      src={sponsor.logoUrl}
+                      width={160}
+                      height={36}
+                      unoptimized
+                      alt={sponsor.name}
+                    />
+                  ) : (
+                    <strong>{sponsor.name}</strong>
+                  );
+                  return sponsor.websiteUrl ? (
+                    <a
+                      key={`${setIdx}-${sponsor.id}`}
+                      href={sponsor.websiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {sponsorLogo}
+                    </a>
+                  ) : (
+                    <span key={`${setIdx}-${sponsor.id}`}>{sponsorLogo}</span>
+                  );
+                })
+              ) : (
+                <span>PARTNERS TO BE ANNOUNCED</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

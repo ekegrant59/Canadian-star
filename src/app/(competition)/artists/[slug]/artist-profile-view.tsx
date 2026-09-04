@@ -234,11 +234,11 @@ export function ArtistProfileView({ artist, votingOpen, sponsors }: ArtistProfil
                     )}
                   </>
                 )}
-                {artist.performanceVideoUrl && (
+                {/* {artist.performanceVideoUrl && (
                   <div className="video-caption">
                     <span>Submitted performance video</span>
                   </div>
-                )}
+                )} */}
               </div>
             </section>
           </div>
@@ -324,7 +324,6 @@ export function ArtistProfileView({ artist, votingOpen, sponsors }: ArtistProfil
           <div className="footer-nav">
             <Link href="/privacy">Privacy Policy</Link>
             <Link href="/terms">Terms of Service</Link>
-            <Link href="/sponsorship">Sponsorship</Link>
             <Link href="/contact">Contact</Link>
           </div>
         </div>

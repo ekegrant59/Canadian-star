@@ -37,6 +37,7 @@ const contentPayloadSchema = z.object({
         websiteUrl: z.union([z.literal(''), z.string().url()]),
         logoUrl: z.string().trim().max(2000),
         tier: z.enum(['title', 'presenting', 'community']),
+        placement: z.enum(['top', 'bottom']).default('bottom'),
       }),
     )
     .max(50)
@@ -129,6 +130,7 @@ export async function GET() {
         websiteUrl: sponsor.websiteUrl ?? '',
         logoUrl: imageUrl(sponsor.logoKey),
         tier: sponsor.tier === 'presenting' ? 'presenting' : 'community',
+        placement: sponsor.placement === 'top' ? 'top' : 'bottom',
       })),
     });
   } catch {
@@ -246,6 +248,7 @@ export async function PUT(request: Request) {
               tier,
               status: 'confirmed',
               displayOrder: index,
+              placement: sponsor.placement,
               updatedAt: now,
             })
             .onConflictDoUpdate({
@@ -257,6 +260,7 @@ export async function PUT(request: Request) {
                 tier,
                 status: 'confirmed',
                 displayOrder: index,
+                placement: sponsor.placement,
                 updatedAt: now,
               },
             });

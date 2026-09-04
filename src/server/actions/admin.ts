@@ -30,7 +30,10 @@ import {
 } from '@/lib/auth/guards';
 import { getClientIp, hashIp } from '@/lib/crypto';
 import { actionError, actionOk, GENERIC_ERROR, type ActionResult } from './types';
-import { renderArtistApplicationStageEmail } from '@/lib/email/templates';
+import {
+  renderArtistApplicationStageEmail,
+  renderArtistEditDecisionEmail,
+} from '@/lib/email/templates';
 import { sendEmail } from '@/lib/email/send';
 import { deletePhotoAssets } from '@/lib/storage';
 
@@ -108,6 +111,12 @@ const advancementSchema = z.object({
   confirmed: z.literal(true),
 });
 
+const finalWinnerSchema = z.object({
+  showId: z.string().uuid(),
+  artistId: z.string().uuid(),
+  confirmed: z.literal(true),
+});
+
 const voteReviewSchema = z.object({
   voteId: z.string().uuid(),
   decision: z.enum(['clear', 'invalidate']),
@@ -118,6 +127,13 @@ const voteReviewSchema = z.object({
 const deleteArtistSchema = z.object({
   artistId: z.string().uuid(),
   applicationId: z.string().uuid(),
+  confirmed: z.literal(true),
+});
+
+const reapprovalSchema = z.object({
+  applicationId: z.string().uuid(),
+  decision: z.enum(['approve', 'reject']),
+  reason: z.string().trim().max(1000).optional(),
   confirmed: z.literal(true),
 });
 
@@ -152,6 +168,178 @@ async function auditValues(
 
 class ReviewConflictError extends Error {}
 class InvalidReviewTransitionError extends Error {}
+
+function pendingArtistColumns(pending: Record<string, unknown>) {
+  const textValue = (key: string) =>
+    typeof pending[key] === 'string' ? String(pending[key]).trim() || null : null;
+  const socialLinks: Record<string, string> = {};
+  for (const key of ['instagram', 'tiktok', 'x', 'youtube', 'facebook']) {
+    const value = textValue(key);
+    if (value) socialLinks[key] = value;
+  }
+  const musicLinks: Record<string, string> = {};
+  if (Array.isArray(pending.recordedMusicUrls))
+    (pending.recordedMusicUrls as unknown[])
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .forEach((url, index) => {
+        musicLinks[`link_${index + 1}`] = url;
+      });
+  const videos = Array.isArray(pending.performanceVideoUrls)
+    ? (pending.performanceVideoUrls as unknown[]).filter(
+        (value): value is string => typeof value === 'string' && value.trim().length > 0,
+      )
+    : [];
+  return {
+    actName: textValue('actName') || 'Untitled application',
+    actType: (pending.actType === 'band' || pending.actType === 'duo'
+      ? pending.actType
+      : 'solo') as 'solo' | 'duo' | 'band',
+    bio: textValue('bio'),
+    locationCity: textValue('locationCity'),
+    contactEmail: textValue('contactEmail'),
+    contactPhone: textValue('contactPhone'),
+    photoKeys: typeof pending.photoKey === 'string' && pending.photoKey ? [pending.photoKey] : [],
+    primaryPhotoKey:
+      typeof pending.photoKey === 'string' && pending.photoKey ? pending.photoKey : null,
+    websiteUrl: textValue('websiteUrl'),
+    performanceVideoUrl: videos[0] ?? null,
+    performanceVideoUrls: videos,
+    socialLinks,
+    musicLinks,
+    updatedAt: new Date(),
+  };
+}
+
+export async function reviewArtistEditsAction(input: unknown) {
+  let admin;
+  try {
+    admin = await requireAdminWriteOrThrow();
+  } catch (error) {
+    return authFailure(error) ?? actionError(GENERIC_ERROR);
+  }
+  const parsed = reapprovalSchema.safeParse(input);
+  if (!parsed.success) return actionError('Confirm the artist edit decision.');
+  const reviewReason = parsed.data.reason?.trim() ?? '';
+  if (parsed.data.decision === 'reject' && reviewReason.length < 3)
+    return actionError('A rejection note of at least three characters is required.');
+  try {
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({
+          pendingEdits: applications.pendingEdits,
+          pendingEditsSubmittedAt: applications.pendingEditsSubmittedAt,
+          artistId: applications.artistId,
+          status: applications.status,
+        })
+        .from(applications)
+        .where(eq(applications.id, parsed.data.applicationId))
+        .limit(1)
+        .for('update');
+      if (!row?.pendingEdits || !row.pendingEditsSubmittedAt)
+        throw new ReviewConflictError('no_submitted_edits');
+      if (!['approved', 'shortlisted', 'finalist'].includes(row.status))
+        throw new InvalidReviewTransitionError();
+      if (parsed.data.decision === 'approve') {
+        await tx
+          .update(artists)
+          .set(pendingArtistColumns(row.pendingEdits))
+          .where(eq(artists.id, row.artistId));
+        await tx
+          .update(applications)
+          .set({
+            availableAllDates:
+              typeof row.pendingEdits.availableAllDates === 'boolean'
+                ? row.pendingEdits.availableAllDates
+                : undefined,
+            isOfAge:
+              typeof row.pendingEdits.isEligible === 'boolean'
+                ? row.pendingEdits.isEligible
+                : undefined,
+            isOntarioResident:
+              typeof row.pendingEdits.isEligible === 'boolean'
+                ? row.pendingEdits.isEligible
+                : undefined,
+            acceptedRules:
+              typeof row.pendingEdits.acceptedRules === 'boolean'
+                ? row.pendingEdits.acceptedRules
+                : undefined,
+            acceptedMediaRelease:
+              typeof row.pendingEdits.acceptedMediaRelease === 'boolean'
+                ? row.pendingEdits.acceptedMediaRelease
+                : undefined,
+            pendingEdits: null,
+            pendingEditsSubmittedAt: null,
+            pendingEditsReviewedAt: now,
+            pendingEditsReviewedBy: admin.id,
+            updatedAt: now,
+          })
+          .where(eq(applications.id, parsed.data.applicationId));
+      } else {
+        await tx
+          .update(applications)
+          .set({
+            pendingEdits: null,
+            pendingEditsSubmittedAt: null,
+            pendingEditsReviewedAt: now,
+            pendingEditsReviewedBy: admin.id,
+            updatedAt: now,
+          })
+          .where(eq(applications.id, parsed.data.applicationId));
+      }
+      await tx
+        .insert(auditLog)
+        .values(
+          await auditValues(
+            admin,
+            `artist.edits_${parsed.data.decision}d`,
+            'application',
+            parsed.data.applicationId,
+            { pendingEdits: row.pendingEdits },
+            { decision: parsed.data.decision, reason: reviewReason },
+          ),
+        );
+    });
+    revalidatePath('/admin');
+    revalidatePath('/admin/reapproval');
+    revalidatePath('/admin/applications');
+    revalidatePath(`/admin/applications/${parsed.data.applicationId}`);
+    revalidatePath('/artist');
+    revalidatePath('/artists');
+    revalidatePath('/');
+    const [recipient] = await db
+      .select({ email: users.email, artistName: users.name, actName: artists.actName })
+      .from(applications)
+      .innerJoin(artists, eq(artists.id, applications.artistId))
+      .innerJoin(users, eq(users.id, artists.userId))
+      .where(eq(applications.id, parsed.data.applicationId))
+      .limit(1);
+    if (recipient?.email) {
+      const rendered = renderArtistEditDecisionEmail({
+        artistName: recipient.artistName || recipient.actName,
+        actName: recipient.actName,
+        approved: parsed.data.decision === 'approve',
+        reason: reviewReason,
+      });
+      const emailResult = await sendEmail({
+        to: recipient.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+      });
+      if (!emailResult.success)
+        console.error('[admin] artist edit decision email failed', emailResult.error);
+    }
+    return actionOk({ decision: parsed.data.decision });
+  } catch (error) {
+    if (error instanceof ReviewConflictError)
+      return actionError('These edits have already been reviewed.');
+    if (error instanceof InvalidReviewTransitionError)
+      return actionError('Only accepted artists can be reapproved.');
+    console.error('[admin] artist edit review failed', error);
+    return actionError(GENERIC_ERROR);
+  }
+}
 
 export async function setCompetitionStageAction(input: unknown) {
   let admin;
@@ -681,6 +869,7 @@ export async function updateShowAction(input: unknown) {
     });
     revalidatePath('/');
     revalidatePath('/admin/events');
+    revalidatePath('/leaderboard');
     return actionOk({ showId: parsed.data.showId });
   } catch (error) {
     console.error('[admin] show update failed', error);
@@ -704,30 +893,12 @@ export async function assignShowArtistsAction(input: unknown) {
       .where(eq(shows.id, parsed.data.showId))
       .limit(1);
     if (!show) return actionError('Show not found.');
-    if (show.type === 'final' && parsed.data.artistIds.length !== 4)
-      return actionError('The Grand Final must have exactly four advanced winners.');
+    if (show.type === 'final')
+      return actionError(
+        'Grand Final finalists are added automatically from qualifying show winners.',
+      );
     if (show.type === 'qualifier' && parsed.data.artistIds.length > 4)
       return actionError('A qualifying show can have at most four Final 16 artists.');
-    if (show.type === 'final' && parsed.data.artistIds.length > 0) {
-      const advanced = await db
-        .selectDistinct({ artistId: showArtists.artistId, showId: showArtists.showId })
-        .from(showArtists)
-        .innerJoin(shows, eq(shows.id, showArtists.showId))
-        .where(
-          and(
-            inArray(showArtists.artistId, parsed.data.artistIds),
-            isNotNull(showArtists.advanced),
-            eq(shows.type, 'qualifier'),
-          ),
-        );
-      if (
-        advanced.length !== parsed.data.artistIds.length ||
-        new Set(advanced.map((row) => row.showId)).size !== 4
-      )
-        return actionError(
-          'The Grand Final must contain one advanced winner from each qualifying show.',
-        );
-    }
     if (show.type === 'qualifier' && parsed.data.artistIds.length > 0) {
       const otherQualifierAssignments = await db
         .selectDistinct({ artistId: showArtists.artistId })
@@ -771,7 +942,11 @@ export async function assignShowArtistsAction(input: unknown) {
     const now = new Date();
     await db.transaction(async (tx) => {
       const existingAssignments = await tx
-        .select({ artistId: showArtists.artistId, advanced: showArtists.advanced })
+        .select({
+          artistId: showArtists.artistId,
+          advanced: showArtists.advanced,
+          winnerAt: showArtists.winnerAt,
+        })
         .from(showArtists)
         .where(eq(showArtists.showId, parsed.data.showId));
       const removedAdvancedArtist = existingAssignments.find(
@@ -780,8 +955,17 @@ export async function assignShowArtistsAction(input: unknown) {
       if (removedAdvancedArtist) {
         throw new Error('advanced_artist_removed');
       }
+      const removedWinnerArtist = existingAssignments.find(
+        (assignment) => assignment.winnerAt && !parsed.data.artistIds.includes(assignment.artistId),
+      );
+      if (removedWinnerArtist) {
+        throw new Error('winner_artist_removed');
+      }
       const advancedByArtist = new Map(
         existingAssignments.map((assignment) => [assignment.artistId, assignment.advanced]),
+      );
+      const winnerByArtist = new Map(
+        existingAssignments.map((assignment) => [assignment.artistId, assignment.winnerAt]),
       );
       await tx.delete(showArtists).where(eq(showArtists.showId, parsed.data.showId));
       if (parsed.data.artistIds.length)
@@ -792,6 +976,7 @@ export async function assignShowArtistsAction(input: unknown) {
             artistId,
             performanceOrder: index + 1,
             advanced: advancedByArtist.get(artistId) ?? null,
+            winnerAt: winnerByArtist.get(artistId) ?? null,
             createdAt: now,
           })),
         );
@@ -803,10 +988,14 @@ export async function assignShowArtistsAction(input: unknown) {
     });
     revalidatePath('/');
     revalidatePath('/admin/events');
+    revalidatePath('/leaderboard');
     return actionOk({ showId: parsed.data.showId, artistIds: parsed.data.artistIds });
   } catch (error) {
     if (error instanceof Error && error.message === 'advanced_artist_removed') {
       return actionError('An advanced artist cannot be removed from their qualifying show.');
+    }
+    if (error instanceof Error && error.message === 'winner_artist_removed') {
+      return actionError('The Grand Final winner cannot be removed from the final show.');
     }
     console.error('[admin] show assignment failed', error);
     return actionError(GENERIC_ERROR);
@@ -863,6 +1052,10 @@ export async function advanceShowArtistAction(input: unknown) {
         .where(and(eq(showArtists.id, assignment.id), isNull(showArtists.advanced)))
         .returning({ id: showArtists.id });
       if (!updatedAssignment[0]) throw new ReviewConflictError('already_advanced');
+      await tx
+        .update(shows)
+        .set({ status: 'completed', updatedAt: now })
+        .where(eq(shows.id, parsed.data.showId));
       const updatedApplication = await tx
         .update(applications)
         .set({ status: 'finalist', reviewedBy: admin.id, reviewedAt: now, updatedAt: now })
@@ -886,8 +1079,65 @@ export async function advanceShowArtistAction(input: unknown) {
             { advancedAt: now },
           ),
         );
+
+      // Finalists are derived from qualifier winners; there is no manual Final 4 roster.
+      const [finalShow] = await tx
+        .select({ id: shows.id })
+        .from(shows)
+        .where(eq(shows.type, 'final'))
+        .limit(1);
+      if (finalShow) {
+        const winners = await tx
+          .select({
+            artistId: showArtists.artistId,
+            performanceOrder: showArtists.performanceOrder,
+            displayOrder: shows.displayOrder,
+            showDate: shows.showDate,
+            winnerAt: showArtists.winnerAt,
+          })
+          .from(showArtists)
+          .innerJoin(shows, eq(shows.id, showArtists.showId))
+          .where(and(eq(shows.type, 'qualifier'), isNotNull(showArtists.advanced)))
+          .orderBy(asc(shows.displayOrder), asc(shows.showDate), asc(showArtists.performanceOrder));
+        const uniqueWinners = winners.filter(
+          (winner, index) =>
+            winners.findIndex((candidate) => candidate.artistId === winner.artistId) === index,
+        );
+        const existingFinal = await tx
+          .select({ artistId: showArtists.artistId, winnerAt: showArtists.winnerAt })
+          .from(showArtists)
+          .where(eq(showArtists.showId, finalShow.id));
+        const winnerAtByArtist = new Map(existingFinal.map((row) => [row.artistId, row.winnerAt]));
+        await tx.delete(showArtists).where(eq(showArtists.showId, finalShow.id));
+        if (uniqueWinners.length) {
+          await tx.insert(showArtists).values(
+            uniqueWinners.map((winner, index) => ({
+              id: randomUUID(),
+              showId: finalShow.id,
+              artistId: winner.artistId,
+              performanceOrder: index + 1,
+              advanced: null,
+              winnerAt: winnerAtByArtist.get(winner.artistId) ?? null,
+              createdAt: now,
+            })),
+          );
+        }
+        await tx
+          .insert(auditLog)
+          .values(
+            await auditValues(
+              admin,
+              'show.finalists_synced',
+              'show',
+              finalShow.id,
+              { artistIds: existingFinal.map((row) => row.artistId) },
+              { artistIds: uniqueWinners.map((winner) => winner.artistId) },
+            ),
+          );
+      }
     });
     revalidatePath('/admin/events');
+    revalidatePath('/leaderboard');
     revalidatePath('/');
     revalidatePath('/artists');
     return actionOk({
@@ -899,13 +1149,114 @@ export async function advanceShowArtistAction(input: unknown) {
     if (error instanceof ReviewConflictError) {
       return actionError(
         error.message === 'winner_exists'
-          ? 'This qualifying show already has a Grand Final winner.'
+          ? 'This qualifying show already has a winner.'
           : error.message === 'already_advanced'
             ? 'Another administrator already advanced this artist.'
             : 'This artist is no longer eligible for advancement. Refresh and try again.',
       );
     }
     console.error('[admin] artist advancement failed', error);
+    return actionError(GENERIC_ERROR);
+  }
+}
+
+export async function setFinalWinnerAction(input: unknown) {
+  let admin;
+  try {
+    admin = await requireAdminWriteOrThrow();
+  } catch (error) {
+    return authFailure(error) ?? actionError(GENERIC_ERROR);
+  }
+  const parsed = finalWinnerSchema.safeParse(input);
+  if (!parsed.success) return actionError('Select a finalist before recording the winner.');
+  try {
+    const [show] = await db
+      .select({ id: shows.id, type: shows.type })
+      .from(shows)
+      .where(eq(shows.id, parsed.data.showId))
+      .limit(1);
+    if (!show || show.type !== 'final') return actionError('Grand Final not found.');
+    const [assignmentCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(showArtists)
+      .where(eq(showArtists.showId, parsed.data.showId));
+    if (Number(assignmentCount?.count ?? 0) !== 4)
+      return actionError(
+        'Record all four qualifying show winners before recording the Grand Final winner.',
+      );
+    const finalArtists = await db
+      .select({ artistId: showArtists.artistId })
+      .from(showArtists)
+      .where(eq(showArtists.showId, parsed.data.showId));
+    const advancedSources = await db
+      .selectDistinct({ artistId: showArtists.artistId, showId: showArtists.showId })
+      .from(showArtists)
+      .innerJoin(shows, eq(shows.id, showArtists.showId))
+      .where(
+        and(
+          inArray(
+            showArtists.artistId,
+            finalArtists.map((row) => row.artistId),
+          ),
+          eq(shows.type, 'qualifier'),
+          isNotNull(showArtists.advanced),
+        ),
+      );
+    if (
+      advancedSources.length !== 4 ||
+      new Set(advancedSources.map((row) => row.showId)).size !== 4
+    )
+      return actionError(
+        'The Grand Final roster is waiting for one winner from each qualifying show.',
+      );
+    const [assignment] = await db
+      .select({ id: showArtists.id, winnerAt: showArtists.winnerAt })
+      .from(showArtists)
+      .where(
+        and(
+          eq(showArtists.showId, parsed.data.showId),
+          eq(showArtists.artistId, parsed.data.artistId),
+        ),
+      )
+      .limit(1);
+    if (!assignment) return actionError('The selected artist is not assigned to the Grand Final.');
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${`show:final-winner:${parsed.data.showId}`}))`,
+      );
+      await tx
+        .update(showArtists)
+        .set({ winnerAt: null })
+        .where(eq(showArtists.showId, parsed.data.showId));
+      await tx.update(showArtists).set({ winnerAt: now }).where(eq(showArtists.id, assignment.id));
+      await tx
+        .update(shows)
+        .set({ status: 'completed', updatedAt: now })
+        .where(eq(shows.id, parsed.data.showId));
+      await tx
+        .insert(auditLog)
+        .values(
+          await auditValues(
+            admin,
+            'show.final_winner_selected',
+            'show_artist',
+            assignment.id,
+            { winnerAt: assignment.winnerAt },
+            { winnerAt: now, showId: parsed.data.showId, artistId: parsed.data.artistId },
+          ),
+        );
+    });
+    revalidatePath('/admin/events');
+    revalidatePath('/leaderboard');
+    revalidatePath('/');
+    return actionOk({
+      showId: parsed.data.showId,
+      artistId: parsed.data.artistId,
+      winnerAt: now.toISOString(),
+    });
+  } catch (error) {
+    console.error('[admin] final winner selection failed', error);
     return actionError(GENERIC_ERROR);
   }
 }
