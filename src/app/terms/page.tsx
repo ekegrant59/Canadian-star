@@ -18,8 +18,10 @@ export default function TermsPage() {
       <p>
         Submitting an application does not guarantee selection. The competition team may request
         clarification, verify eligibility, and make decisions under the published competition rules.
-        An approved profile may be edited by the artist, but changes are published only after
-        review.
+        Applications must include at least two recorded song links. The submitted music must be
+        original country music written or co-written by the contestant; AI-generated music is
+        forbidden. Contestants must also be available for all five competition dates. An approved
+        profile may be edited by the artist, but changes are published only after review.
       </p>
       <h2>Media and public profiles</h2>
       <p>

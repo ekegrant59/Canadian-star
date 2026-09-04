@@ -3,11 +3,18 @@
 import Link from 'next/link';
 import { useState, type MouseEvent } from 'react';
 import { Menu, X } from 'lucide-react';
+import { BRAND_LOGO_ALT, BRAND_LOGO_URL } from '@/config/brand';
 
 export function Brand({ onClick }: { onClick?: () => void }) {
   return (
     <Link href="/" className="brand" aria-label="Canadian Star home" onClick={onClick}>
-      <span>CANADIAN STAR</span>
+      <img
+        className="brand-logo"
+        src={BRAND_LOGO_URL}
+        alt={BRAND_LOGO_ALT}
+        width={200}
+        height={140}
+      />
     </Link>
   );
 }

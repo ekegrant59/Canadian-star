@@ -13,6 +13,7 @@ import { SubmittedStep } from './steps/submitted-step';
 import { toActionPayload, type ApplicationFormData } from './types';
 import { saveApplicationDraftAction, submitApplicationAction } from '@/server/actions/application';
 import { uploadPhoto, UploadError } from '@/lib/upload-client';
+import { Brand } from '@/components/shared/site-header';
 
 const STEP_LABELS: Record<ApplicationStepIndex, string> = {
   1: 'Artist Info',
@@ -35,6 +36,7 @@ interface ApplicationFlowProps {
   hasPendingEdits?: boolean;
   pendingEditKeys?: string[];
   initialStep: number;
+  startInEditMode?: boolean;
   applicationsOpen: boolean;
   accountEmail: string;
   accountName: string | null;
@@ -50,6 +52,7 @@ export function ApplicationFlow({
   hasPendingEdits = false,
   pendingEditKeys = [],
   initialStep,
+  startInEditMode = false,
   applicationsOpen,
   accountEmail,
   accountName,
@@ -60,6 +63,7 @@ export function ApplicationFlow({
 
   const [currentStep, setCurrentStep] = useState<ApplicationStepIndex>(() => {
     if (isLocked) return 5;
+    if (startInEditMode) return 1;
     if (initialStep >= 5) return 5;
     const step = Math.min(Math.max(initialStep, 1), 4);
     return step as ApplicationStepIndex;
@@ -203,6 +207,12 @@ export function ApplicationFlow({
       <ArtistTopBar
         isDraftSaved={isDraftSaved}
         isSaving={isSaving}
+        isEditing={currentStep !== 5}
+        onShowDashboard={() => {
+          setCurrentStep(5);
+          router.replace('/artist');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         onSaveDraft={isLocked ? undefined : () => void saveDraft(currentStep)}
         accountEmail={accountEmail}
         accountName={accountName}
@@ -369,6 +379,7 @@ export function ApplicationFlow({
       </div>
 
       <footer className="app-portal-footer">
+        <Brand />
         <span>© 2026 THE NEXT GREAT CANADIAN COUNTRY STAR. ALL RIGHTS RESERVED.</span>
         <div className="app-portal-footer-nav">
           <a href="/privacy">PRIVACY POLICY</a>

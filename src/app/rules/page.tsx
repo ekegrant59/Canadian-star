@@ -16,10 +16,12 @@ export default function RulesPage() {
       </p>
       <h2>Application and review</h2>
       <p>
-        Artists submit a profile, biography, contact details, photographs, social links, performance
-        video where available, recorded music links, availability, and required confirmations. The
-        review team may assess vocal ability, musicianship, stage presence, originality, commercial
-        readiness, and the quality of submitted material.
+        Artists submit a profile, biography, contact details, photographs, social links, at least
+        one performance video, and at least two recorded music links, together with availability and
+        the required confirmations. Submitted songs must be original country music written or
+        co-written by the contestant; AI-generated music is forbidden. The review team may assess
+        vocal ability, musicianship, stage presence, originality, commercial readiness, and the
+        quality of submitted material.
       </p>
       <h2>Competition path</h2>
       <p>
@@ -29,9 +31,10 @@ export default function RulesPage() {
       </p>
       <h2>Availability and conduct</h2>
       <p>
-        Artists must be available for all required competition dates and follow venue, production,
+        Contestants must be available for all five competition dates and follow venue, production,
         and conduct requirements. The competition team may remove an entry that is ineligible,
-        misleading, unsafe, or inconsistent with these rules.
+        misleading, uses forbidden AI-generated music, is unsafe, or is otherwise inconsistent with
+        these rules.
       </p>
       <h2>Changes to an approved profile</h2>
       <p>

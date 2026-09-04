@@ -18,7 +18,7 @@ const journey = [
   {
     label: 'APPLY',
     title: 'APPLY',
-    copy: 'Submit your best original songs and live performance videos for review.',
+    copy: 'Submit at least two original songs and live performance videos for review. AI-generated music is not permitted.',
     image: image('image1_4_4.png'),
   },
   {

@@ -26,12 +26,12 @@ const eligibility = [
   {
     icon: Music2,
     title: 'Original Music',
-    copy: 'Must have original country songs written or co-written and prepared for live performance.',
+    copy: 'Submit at least two original country songs written or co-written and prepared for live performance. AI-generated music is forbidden.',
   },
   {
     icon: Plane,
     title: 'Travel & Accommodation',
-    copy: 'Artists are responsible for their own travel and accommodation to Peterborough for performance dates.',
+    copy: 'Contestants must be available for all five competition dates and are responsible for their own travel and accommodation to Peterborough.',
     badge: 'DETAILS TO BE CONFIRMED',
   },
 ] as const;

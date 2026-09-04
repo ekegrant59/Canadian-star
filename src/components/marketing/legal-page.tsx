@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowUpRight, FileText } from 'lucide-react';
-import { SiteHeader } from '@/components/shared/site-header';
+import { Brand, SiteHeader } from '@/components/shared/site-header';
 
 export function LegalPage({
   title,
@@ -60,9 +60,7 @@ export function LegalPage({
       <footer className="legal-footer">
         <div className="container-content footer-top">
           <div className="footer-brand">
-            <Link href="/" className="brand" aria-label="Canadian Star home">
-              <span>CANADIAN STAR</span>
-            </Link>
+            <Brand />
             <p>Celebrating the authentic voices of Ontario&apos;s country music scene.</p>
           </div>
           <div className="footer-nav">

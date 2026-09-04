@@ -9,10 +9,11 @@ import {
   Check,
   LogOut,
   HelpCircle,
-  LayoutDashboard,
   BookOpen,
   LifeBuoy,
   Loader2,
+  Pencil,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Brand } from '@/components/shared/site-header';
 import { signOutAction } from '@/server/actions/auth';
@@ -21,6 +22,8 @@ interface ArtistTopBarProps {
   isDraftSaved?: boolean;
   isSaving?: boolean;
   onSaveDraft?: () => void;
+  isEditing?: boolean;
+  onShowDashboard?: () => void;
   accountEmail: string;
   accountName: string | null;
 }
@@ -29,6 +32,8 @@ export function ArtistTopBar({
   isDraftSaved = false,
   isSaving = false,
   onSaveDraft,
+  isEditing = false,
+  onShowDashboard,
   accountEmail,
   accountName,
 }: ArtistTopBarProps) {
@@ -87,7 +92,13 @@ export function ArtistTopBar({
         <nav className="artist-topbar-nav" aria-label="Portal navigation">
           <Link
             href="/artist"
-            className="text-text hover:text-primary font-semibold transition-colors"
+            className="hover:text-primary font-semibold transition-colors"
+            onClick={(event) => {
+              if (onShowDashboard) {
+                event.preventDefault();
+                onShowDashboard();
+              }
+            }}
           >
             Dashboard
           </Link>
@@ -175,26 +186,42 @@ export function ArtistTopBar({
                 <span className="text-text-subtle block truncate text-[11px]">{accountEmail}</span>
               </div>
 
-              {/* Nav links, shown here only on mobile where the top nav is hidden */}
-              <div className="block md:hidden">
-                <Link
-                  href="/artist"
-                  className="text-text flex items-center gap-2.5 px-4 py-2 text-xs transition-colors hover:bg-[#2a2a2a]"
-                  onClick={closeAllMenus}
-                >
-                  <LayoutDashboard size={14} className="text-primary" aria-hidden="true" />{' '}
-                  Dashboard
-                </Link>
+              {/* Portal links remain available through tablet widths. */}
+              <div className="block lg:hidden">
+                {isEditing ? (
+                  <Link
+                    href="/artist"
+                    className="text-text flex min-h-11 items-center gap-2.5 px-4 py-2 text-xs transition-colors hover:bg-[#2a2a2a]"
+                    onClick={(event) => {
+                      closeAllMenus();
+                      if (onShowDashboard) {
+                        event.preventDefault();
+                        onShowDashboard();
+                      }
+                    }}
+                  >
+                    <LayoutDashboard size={14} className="text-primary" aria-hidden="true" />{' '}
+                    Dashboard
+                  </Link>
+                ) : (
+                  <Link
+                    href="/artist?edit=1"
+                    className="text-text flex min-h-11 items-center gap-2.5 px-4 py-2 text-xs transition-colors hover:bg-[#2a2a2a]"
+                    onClick={closeAllMenus}
+                  >
+                    <Pencil size={14} className="text-primary" aria-hidden="true" /> Edit Profile
+                  </Link>
+                )}
                 <Link
                   href="/rules"
-                  className="text-text flex items-center gap-2.5 px-4 py-2 text-xs transition-colors hover:bg-[#2a2a2a]"
+                  className="text-text flex min-h-11 items-center gap-2.5 px-4 py-2 text-xs transition-colors hover:bg-[#2a2a2a]"
                   onClick={closeAllMenus}
                 >
                   <BookOpen size={14} className="text-primary" aria-hidden="true" /> Guidelines
                 </Link>
                 <Link
                   href="/contact"
-                  className="text-text flex items-center gap-2.5 px-4 py-2 text-xs transition-colors hover:bg-[#2a2a2a]"
+                  className="text-text flex min-h-11 items-center gap-2.5 px-4 py-2 text-xs transition-colors hover:bg-[#2a2a2a]"
                   onClick={closeAllMenus}
                 >
                   <LifeBuoy size={14} className="text-primary" aria-hidden="true" /> Support

@@ -1,5 +1,6 @@
 import { EmailLayoutProps } from './types';
 import { SITE_URL } from '@/config/site-url';
+import { BRAND_LOGO_URL, BRAND_LOGO_ALT } from '@/config/brand';
 
 const EMAIL_BASE_URL = (process.env.BETTER_AUTH_URL || SITE_URL).replace(/\/+$/, '');
 const VERIFIED_ROUTE_PREFIXES = [
@@ -186,13 +187,15 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
         <!-- Main Email Container (600px max) -->
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container email-bg" style="max-width: 600px; background-color: #131313; border: 1px solid #332822; border-radius: 6px; overflow: hidden;">
           
-          <!-- Top Clean Header (No Cinematic Frontier) -->
+          <!-- Branded Header -->
           <tr>
             <td align="center" style="padding: 20px 24px; background-color: #131313; border-bottom: 1px solid #26201D;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center" style="font-size: 11px; font-weight: 700; letter-spacing: 2.5px; color: #FF9B70; text-transform: uppercase;">
-                    CANADIAN COUNTRY STAR
+                  <td align="center">
+                    <a href="${EMAIL_BASE_URL}" target="_blank" style="display: inline-block;">
+                      <img src="${BRAND_LOGO_URL}" width="200" height="140" alt="${BRAND_LOGO_ALT}" style="display: block; width: 200px; height: auto; max-width: 100%;">
+                    </a>
                   </td>
                 </tr>
               </table>
@@ -299,7 +302,9 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
               <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #B38F80; text-transform: uppercase; padding-bottom: 12px;">
-                    CANADIAN COUNTRY STAR
+                    <a href="${EMAIL_BASE_URL}" target="_blank" style="display: inline-block;">
+                      <img src="${BRAND_LOGO_URL}" width="200" height="140" alt="${BRAND_LOGO_ALT}" style="display: block; width: 200px; height: auto; max-width: 100%;">
+                    </a>
                   </td>
                 </tr>
                 <tr>
@@ -311,7 +316,7 @@ export function wrapInEmailLayout(props: EmailLayoutProps): string {
                 </tr>
                 <tr>
                   <td align="center" style="font-size: 10px; color: #575553;">
-                    &copy; 2026 Canadian Country Star. All Rights Reserved.
+                    &copy; 2026 The Next Great Canadian Country Star. All Rights Reserved.
                   </td>
                 </tr>
               </table>

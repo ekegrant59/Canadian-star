@@ -288,8 +288,14 @@ export function ReviewStep({
               ))}
             </div>
           ) : (
-            <span className="text-text-subtle text-sm italic">No music links added</span>
+            <span className="text-text-subtle text-sm italic">
+              At least two recorded music links are required
+            </span>
           )}
+          {musicUrls.length === 1 && (
+            <p className="text-text-subtle mt-2 text-xs">Add one more recorded music link.</p>
+          )}
+          <FieldError id="review-music-urls-error" message={errors.recordedMusicUrls} />
         </div>
 
         {/* Social Links */}

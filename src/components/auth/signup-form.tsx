@@ -111,6 +111,7 @@ export function SignupForm() {
           acceptedTerms: true,
         },
         redirectParam ?? undefined,
+        { resend: true },
       );
       if (!result.ok) setError(result.error);
       else setSuccess(`A new verification code was sent to ${result.data.email}.`);

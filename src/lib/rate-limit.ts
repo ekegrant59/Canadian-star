@@ -31,7 +31,7 @@ export type RateLimitRule = {
  * Limits for each protected surface.
  *
  * Every unauthenticated endpoint gets one: vote, apply, contact, subscribe,
- * sign-in, verification resend.
+ * sign-in, signup, signup resend, and signup code verification.
  */
 export const RATE_LIMITS = {
   // Network limits are intentionally broad because homes, offices, venues,
@@ -45,6 +45,16 @@ export const RATE_LIMITS = {
   'vote:verify:email': { limit: 10, windowSeconds: 3600 },
   'signin:ip': { limit: 10, windowSeconds: 3600 },
   'signin:email': { limit: 5, windowSeconds: 3600 },
+  // Signup has its own buckets so login failures from a shared network or
+  // an existing account cannot block a new artist from registering.
+  // Mobile carriers, campuses, and offices can put many legitimate artists
+  // behind one address. The per-email bucket remains the tighter control.
+  'signup:ip': { limit: 20, windowSeconds: 3600 },
+  'signup:email': { limit: 3, windowSeconds: 3600 },
+  'signup:resend:ip': { limit: 3, windowSeconds: 3600 },
+  'signup:resend:email': { limit: 3, windowSeconds: 3600 },
+  'signup:verify:ip': { limit: 10, windowSeconds: 3600 },
+  'signup:verify:email': { limit: 10, windowSeconds: 3600 },
   'verify:resend': { limit: 3, windowSeconds: 3600 },
   'subscribe:ip': { limit: 5, windowSeconds: 3600 },
   'contact:ip': { limit: 3, windowSeconds: 3600 },

@@ -37,7 +37,11 @@ export const instant = false;
  * file may redirect for UX; it is never the security boundary. CVE-2025-29927
  * was this mistake at framework level.
  */
-export default async function ArtistPortalPage() {
+export default async function ArtistPortalPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ edit?: string | string[] }>;
+}) {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -45,11 +49,13 @@ export default async function ArtistPortalPage() {
     redirect('/login?redirect=%2Fartist');
   }
 
-  const [application, applicationsOpen, competitionStage] = await Promise.all([
+  const [{ edit }, application, applicationsOpen, competitionStage] = await Promise.all([
+    searchParams,
     getApplicationForUser(user.id),
     isCompetitionStageActive('applications'),
     getCompetitionStage(),
   ]);
+  const editRequested = Array.isArray(edit) ? edit.includes('1') : edit === '1';
   const photoKey = application?.pendingEdits?.photoKey
     ? String(application.pendingEdits.photoKey)
     : application?.primaryPhotoKey;
@@ -71,6 +77,7 @@ export default async function ArtistPortalPage() {
 
   return (
     <ApplicationFlow
+      key={editRequested ? 'edit-mode' : 'dashboard-mode'}
       initialData={{ ...toFormData(application, photoUrl), musicMetadata }}
       status={application?.status ?? null}
       competitionStage={competitionStage}
@@ -80,6 +87,7 @@ export default async function ArtistPortalPage() {
       hasPendingEdits={Boolean(application?.pendingEditsSubmittedAt)}
       pendingEditKeys={pendingEditKeys}
       initialStep={application?.currentStep ?? 1}
+      startInEditMode={editRequested}
       applicationsOpen={applicationsOpen}
       accountEmail={user.email}
       accountName={user.name}

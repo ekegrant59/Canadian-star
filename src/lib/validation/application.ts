@@ -197,6 +197,12 @@ export const musicMediaSchema = musicMediaDraftSchema.extend({
     'Video links must be a YouTube or Vimeo https link.',
     LIMITS.maxVideoLinks,
   ).refine((values) => values.length >= 1, 'Add at least one performance video link.'),
+  /** At least two recorded songs are required for eligibility review. */
+  recordedMusicUrls: linkArray(
+    validateMusicUrl,
+    'Music links must be an https link to Spotify, Apple Music, SoundCloud, or Bandcamp.',
+    LIMITS.maxMusicLinks,
+  ).refine((values) => values.length >= 2, 'Add at least two recorded music links.'),
 });
 
 // ---------------------------------------------------------------------------

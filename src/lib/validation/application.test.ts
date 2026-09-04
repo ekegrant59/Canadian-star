@@ -22,7 +22,10 @@ const validSubmission = {
   bio: 'A five-piece from the Kawarthas.',
   photoKey: 'artists/abc/def',
   performanceVideoUrls: ['https://youtube.com/watch?v=abc'],
-  recordedMusicUrls: ['https://open.spotify.com/artist/xyz'],
+  recordedMusicUrls: [
+    'https://open.spotify.com/artist/xyz',
+    'https://soundcloud.com/kawartha-ramblers/song',
+  ],
   instagram: '',
   tiktok: '',
   x: '',
@@ -90,6 +93,14 @@ describe('application submit schema', () => {
     const result = applicationSubmitSchema.safeParse({
       ...validSubmission,
       performanceVideoUrls: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('requires at least two recorded music links', () => {
+    const result = applicationSubmitSchema.safeParse({
+      ...validSubmission,
+      recordedMusicUrls: ['https://open.spotify.com/artist/xyz'],
     });
     expect(result.success).toBe(false);
   });

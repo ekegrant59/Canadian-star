@@ -9,7 +9,7 @@ import { db } from '@/db';
 import { users, verifications } from '@/db/schema';
 import { ROLE_HOME, type Role } from '@/lib/auth/roles';
 import { normalizeEmail } from '@/lib/email-normalize';
-import { hashIp, getClientIp, hashVerificationCode, safeCompare } from '@/lib/crypto';
+import { hashIp, hashToken, getClientIp, hashVerificationCode, safeCompare } from '@/lib/crypto';
 import { checkRateLimit, type RateLimitResult, type RateLimitScope } from '@/lib/rate-limit';
 import { signUpSchema, signInSchema, SIGNUP_CONSENT_WORDING } from '@/lib/validation/auth';
 import { recordConsents } from '@/server/consent';
@@ -33,6 +33,7 @@ import { sendEmail } from '@/lib/email/send';
 
 type SignUpSuccess = { redirectTo: string };
 type PendingSignup = { email: string; fullName: string; password: string; redirectTo?: string };
+type SignupRequestOptions = { resend?: boolean };
 
 const AUTH_UNAVAILABLE =
   'Account access is temporarily unavailable. Please try again in a few minutes.';
@@ -84,15 +85,17 @@ function safeRedirect(requested: string | undefined, role: Role): string {
 export async function signUpAction(
   input: unknown,
   redirectTo?: string,
+  options?: SignupRequestOptions,
 ): Promise<ActionResult<{ requiresEmailVerification: true; email: string }>> {
-  void redirectTo;
   const requestHeaders = await headers();
   const ipHash = hashIp(getClientIp(requestHeaders));
+  const isResend = options?.resend === true;
+  const ipScope = isResend ? 'signup:resend:ip' : 'signup:ip';
 
   // Rate limit BEFORE validating. Validation is work done for an anonymous
   // caller, and running it first turns this into a cheap way to probe the
   // schema.
-  const ipLimit = await consumeAuthRateLimit('signin:ip', ipHash);
+  const ipLimit = await consumeAuthRateLimit(ipScope, ipHash);
   if (!ipLimit) return actionError(AUTH_UNAVAILABLE);
   if (!ipLimit.allowed) {
     return actionError('Too many attempts. Please wait a few minutes and try again.');
@@ -114,7 +117,8 @@ export async function signUpAction(
     return actionError('This account must be created by an administrator.');
   }
 
-  const emailLimit = await consumeAuthRateLimit('signin:email', normalized.canonical);
+  const emailScope = isResend ? 'signup:resend:email' : 'signup:email';
+  const emailLimit = await consumeAuthRateLimit(emailScope, hashToken(normalized.canonical));
   if (!emailLimit) return actionError(AUTH_UNAVAILABLE);
   if (!emailLimit.allowed) {
     return actionError('Too many attempts. Please wait a few minutes and try again.');
@@ -172,8 +176,11 @@ export async function verifySignupEmailAction(
   if (!normalized.ok || !/^\d{6}$/.test(input.code))
     return actionError('Enter the six-digit verification code.');
   const ipHash = hashIp(getClientIp(requestHeaders));
-  const ipLimit = await consumeAuthRateLimit('verify:resend', ipHash);
-  const emailLimit = await consumeAuthRateLimit('verify:resend', normalized.canonical);
+  const ipLimit = await consumeAuthRateLimit('signup:verify:ip', ipHash);
+  const emailLimit = await consumeAuthRateLimit(
+    'signup:verify:email',
+    hashToken(normalized.canonical),
+  );
   if (!ipLimit || !emailLimit) return actionError(AUTH_UNAVAILABLE);
   if (!ipLimit.allowed || !emailLimit.allowed)
     return actionError('Too many verification attempts. Please try again later.');
@@ -326,7 +333,7 @@ async function signInForPortal(
   }
 
   if (portal === 'public' || ADMIN_RATE_LIMITS_ENABLED) {
-    const emailLimit = await consumeAuthRateLimit('signin:email', normalized.canonical);
+    const emailLimit = await consumeAuthRateLimit('signin:email', hashToken(normalized.canonical));
     if (!emailLimit) return actionError(AUTH_UNAVAILABLE);
     if (!emailLimit.allowed) {
       // Same message as the IP limit. Say THIS email is throttled and you've

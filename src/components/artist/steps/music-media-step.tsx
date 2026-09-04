@@ -29,7 +29,8 @@ interface MusicMediaStepProps {
   onSaveDraft: () => void;
 }
 
-const MAX_LINKS = LIMITS.maxVideoLinks;
+const MAX_VIDEO_LINKS = LIMITS.maxVideoLinks;
+const MAX_MUSIC_LINKS = LIMITS.maxMusicLinks;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -50,7 +51,9 @@ export function MusicMediaStep({
   const errors = mergeIssues(localErrors, fieldErrors);
 
   const videoUrls = formData.performanceVideoUrls.length > 0 ? formData.performanceVideoUrls : [''];
-  const musicUrls = formData.recordedMusicUrls.length > 0 ? formData.recordedMusicUrls : [''];
+  const musicUrls = formData.recordedMusicUrls.some(Boolean)
+    ? formData.recordedMusicUrls
+    : ['', ''];
 
   /**
    * Keeps the chosen photo in browser state for preview and validation. The
@@ -135,7 +138,7 @@ export function MusicMediaStep({
   };
 
   const addVideoUrl = () => {
-    if (videoUrls.length < MAX_LINKS) {
+    if (videoUrls.length < MAX_VIDEO_LINKS) {
       updateFormData({ performanceVideoUrls: [...videoUrls, ''] });
     }
   };
@@ -152,7 +155,7 @@ export function MusicMediaStep({
   };
 
   const addMusicUrl = () => {
-    if (musicUrls.length < MAX_LINKS) {
+    if (musicUrls.length < MAX_MUSIC_LINKS) {
       updateFormData({ recordedMusicUrls: [...musicUrls, ''] });
     }
   };
@@ -202,8 +205,9 @@ export function MusicMediaStep({
     <form onSubmit={handleSubmit} noValidate>
       <h1 className="app-page-title">Music &amp; Media</h1>
       <p className="app-page-subtitle">
-        Upload your best promotional photo and link to your strongest performances. This is what the
-        panel assesses, so lead with your best work.
+        Upload your best promotional photo and link to your strongest performances. Submit original
+        material only; AI-generated music is forbidden. This is what the panel assesses, so lead
+        with your best work.
       </p>
 
       {/* Section 1: Promotional Photo */}
@@ -315,7 +319,7 @@ export function MusicMediaStep({
               <div className="text-text-warm flex items-center gap-2 text-xs font-bold tracking-wider uppercase">
                 <Video size={16} className="text-primary" aria-hidden="true" />
                 <span>
-                  PERFORMANCE VIDEO LINKS ({videoUrls.filter(Boolean).length}/{MAX_LINKS})
+                  PERFORMANCE VIDEO LINKS ({videoUrls.filter(Boolean).length}/{MAX_VIDEO_LINKS})
                 </span>
               </div>
             </div>
@@ -356,7 +360,7 @@ export function MusicMediaStep({
             <FieldError id="video-urls-error" message={errors.performanceVideoUrls} />
           </div>
 
-          {videoUrls.length < MAX_LINKS && (
+          {videoUrls.length < MAX_VIDEO_LINKS && (
             <button
               type="button"
               className="add-link-btn"
@@ -376,7 +380,7 @@ export function MusicMediaStep({
               <div className="text-text-warm flex items-center gap-2 text-xs font-bold tracking-wider uppercase">
                 <Headphones size={16} className="text-primary" aria-hidden="true" />
                 <span>
-                  RECORDED MUSIC LINKS ({musicUrls.filter(Boolean).length}/{MAX_LINKS})
+                  RECORDED MUSIC LINKS ({musicUrls.filter(Boolean).length}/{MAX_MUSIC_LINKS})
                 </span>
               </div>
             </div>
@@ -412,12 +416,13 @@ export function MusicMediaStep({
               </div>
             ))}
             <p className="app-field-helper">
-              Link to Spotify, Apple Music, SoundCloud, or Bandcamp.
+              Add at least two recorded songs. Links may be from Spotify, Apple Music, SoundCloud,
+              or Bandcamp.
             </p>
             <FieldError id="music-urls-error" message={errors.recordedMusicUrls} />
           </div>
 
-          {musicUrls.length < MAX_LINKS && (
+          {musicUrls.length < MAX_MUSIC_LINKS && (
             <button
               type="button"
               className="add-link-btn"

@@ -307,7 +307,7 @@ a {
 
 .legal-hero-mark {
   display: grid;
-  width: 112px;
+  width: 150px;
   aspect-ratio: 1;
   place-items: center;
   color: var(--color-primary);
@@ -731,9 +731,17 @@ a {
 .brand {
   display: inline-flex;
   align-items: center;
-  font: 800 20px/1 var(--font-display);
-  letter-spacing: 0.04em;
+  width: 112px;
+  flex: 0 0 auto;
   color: var(--color-text);
+}
+
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 357 / 156;
+  object-fit: contain;
 }
 
 .desktop-nav {
@@ -1716,7 +1724,7 @@ footer {
   }
 
   .brand {
-    font-size: 18px;
+    width: 128px;
   }
 
   .desktop-nav,
