@@ -6,10 +6,11 @@ import { SiteHeader } from '@/components/shared/site-header';
 interface AuthCardProps {
   title: string;
   subtitle: string;
+  headerAction?: React.ReactNode;
   children: React.ReactNode;
 }
 
-export function AuthLayout({ title, subtitle, children }: AuthCardProps) {
+export function AuthLayout({ title, subtitle, headerAction, children }: AuthCardProps) {
   return (
     <div className="auth-page-wrapper">
       {/* Background layer matching hero */}
@@ -33,6 +34,7 @@ export function AuthLayout({ title, subtitle, children }: AuthCardProps) {
         <div className="auth-card">
           <h1 className="auth-title">{title}</h1>
           <p className="auth-subtitle">{subtitle}</p>
+          {headerAction && <div className="auth-header-action">{headerAction}</div>}
           {children}
         </div>
       </main>

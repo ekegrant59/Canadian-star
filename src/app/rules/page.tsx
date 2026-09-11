@@ -16,12 +16,12 @@ export default function RulesPage() {
       </p>
       <h2>Application and review</h2>
       <p>
-        Artists submit a profile, biography, contact details, photographs, social links, at least
-        one performance video, and at least two recorded music links, together with availability and
-        the required confirmations. Submitted songs must be original country music written or
-        co-written by the contestant; AI-generated music is forbidden. The review team may assess
-        vocal ability, musicianship, stage presence, originality, commercial readiness, and the
-        quality of submitted material.
+        Artists submit a profile, biography, contact details, photographs, social links, and at
+        least two recorded music links, together with availability and the required confirmations. A
+        performance video is welcome but optional. Submitted songs must be original country music
+        written or co-written by the contestant; AI-generated music is forbidden. The review team
+        may assess vocal ability, musicianship, stage presence, originality, commercial readiness,
+        and the quality of submitted material.
       </p>
       <h2>Competition path</h2>
       <p>

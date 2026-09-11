@@ -8,6 +8,9 @@ import { AGE_MINIMUM } from '@/config/event';
 import { signUpSchema } from '@/lib/validation/auth';
 import { signUpAction, verifySignupEmailAction } from '@/server/actions/auth';
 
+const AUTH_REQUEST_ERROR =
+  'We could not reach the account service. Check your connection and try again in a moment.';
+
 export function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,7 +65,13 @@ export function SignupForm() {
     }
 
     startTransition(async () => {
-      const result = await signUpAction(parsed.data, redirectParam ?? undefined);
+      let result;
+      try {
+        result = await signUpAction(parsed.data, redirectParam ?? undefined);
+      } catch {
+        setError(AUTH_REQUEST_ERROR);
+        return;
+      }
 
       if (!result.ok) {
         setError(result.error);
@@ -71,7 +80,9 @@ export function SignupForm() {
 
       if (result.data.requiresEmailVerification) {
         setPendingVerification(true);
-        setSuccess(`We sent a six-digit verification code to ${result.data.email}.`);
+        setSuccess(
+          `We sent a six-digit verification code to ${result.data.email}. It may take 5-10 minutes to arrive. Check your junk or spam folder too, and wait before requesting another code.`,
+        );
         return;
       }
     });
@@ -81,13 +92,19 @@ export function SignupForm() {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await verifySignupEmailAction({
-        fullName,
-        email,
-        password,
-        code: verificationCode,
-        redirectTo: redirectParam ?? undefined,
-      });
+      let result;
+      try {
+        result = await verifySignupEmailAction({
+          fullName,
+          email,
+          password,
+          code: verificationCode,
+          redirectTo: redirectParam ?? undefined,
+        });
+      } catch {
+        setError(AUTH_REQUEST_ERROR);
+        return;
+      }
       if (!result.ok) {
         setError(result.error);
         return;
@@ -101,20 +118,29 @@ export function SignupForm() {
   const handleResend = () => {
     setError(null);
     startTransition(async () => {
-      const result = await signUpAction(
-        {
-          fullName,
-          email,
-          password,
-          confirmPassword: password,
-          confirmedAge: true,
-          acceptedTerms: true,
-        },
-        redirectParam ?? undefined,
-        { resend: true },
-      );
+      let result;
+      try {
+        result = await signUpAction(
+          {
+            fullName,
+            email,
+            password,
+            confirmPassword: password,
+            confirmedAge: true,
+            acceptedTerms: true,
+          },
+          redirectParam ?? undefined,
+          { resend: true },
+        );
+      } catch {
+        setError(AUTH_REQUEST_ERROR);
+        return;
+      }
       if (!result.ok) setError(result.error);
-      else setSuccess(`A new verification code was sent to ${result.data.email}.`);
+      else
+        setSuccess(
+          `A new verification code was sent to ${result.data.email}. It may take 5-10 minutes to arrive. Check your junk or spam folder too.`,
+        );
     });
   };
 
@@ -169,7 +195,8 @@ export function SignupForm() {
             autoComplete="one-time-code"
           />
           <p className="auth-helper-text">
-            The code expires in 10 minutes and can only be used once.
+            Codes can take 5-10 minutes to arrive. Check your junk or spam folder, then wait before
+            requesting another code. Each code expires in 10 minutes and can only be used once.
           </p>
           <button
             type="button"
@@ -332,14 +359,6 @@ export function SignupForm() {
           'CREATE ACCOUNT'
         )}
       </button>
-
-      {/* Footer Link */}
-      <p className="auth-footer">
-        Already have an account?
-        <Link href={loginHref} className="auth-footer-link">
-          Login
-        </Link>
-      </p>
     </form>
   );
 }

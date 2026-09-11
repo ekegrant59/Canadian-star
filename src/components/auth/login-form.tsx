@@ -7,6 +7,9 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { signInSchema } from '@/lib/validation/auth';
 import { signInAction } from '@/server/actions/auth';
 
+const AUTH_REQUEST_ERROR =
+  'We could not reach the account service. Check your connection and try again in a moment.';
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -33,7 +36,13 @@ export function LoginForm() {
     }
 
     startTransition(async () => {
-      const result = await signInAction(parsed.data, redirectParam ?? undefined);
+      let result;
+      try {
+        result = await signInAction(parsed.data, redirectParam ?? undefined);
+      } catch {
+        setError(AUTH_REQUEST_ERROR);
+        return;
+      }
 
       if (!result.ok) {
         setError(result.error);

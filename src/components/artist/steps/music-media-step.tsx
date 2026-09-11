@@ -355,7 +355,7 @@ export function MusicMediaStep({
               </div>
             ))}
             <p className="app-field-helper">
-              Link to a live performance on YouTube or Vimeo. At least one is required.
+              Optional. If you have a live performance on YouTube or Vimeo, add it here.
             </p>
             <FieldError id="video-urls-error" message={errors.performanceVideoUrls} />
           </div>

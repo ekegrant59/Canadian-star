@@ -191,12 +191,12 @@ export const musicMediaSchema = musicMediaDraftSchema.extend({
     .trim()
     .min(1, 'Upload a promotional photo.')
     .max(LIMITS.url, 'That photo reference is invalid.'),
-  /** At least one performance video: it is what the panel actually assesses. */
+  /** Performance video is optional; some artists do not have a suitable video yet. */
   performanceVideoUrls: linkArray(
     validateVideoUrl,
     'Video links must be a YouTube or Vimeo https link.',
     LIMITS.maxVideoLinks,
-  ).refine((values) => values.length >= 1, 'Add at least one performance video link.'),
+  ).optional(),
   /** At least two recorded songs are required for eligibility review. */
   recordedMusicUrls: linkArray(
     validateMusicUrl,

@@ -89,12 +89,12 @@ describe('application submit schema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('requires at least one performance video', () => {
+  it('allows an application without a performance video', () => {
     const result = applicationSubmitSchema.safeParse({
       ...validSubmission,
       performanceVideoUrls: [],
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('requires at least two recorded music links', () => {

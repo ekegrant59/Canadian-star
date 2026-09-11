@@ -13,6 +13,11 @@ export const metadata: Metadata = {
     'A five-week live country music competition for emerging and unsigned Ontario artists. Five shows, January 9 to February 6, 2027.',
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: '/' },
+  icons: {
+    icon: [{ url: '/favicon.png', type: 'image/png', sizes: '101x87' }],
+    shortcut: ['/favicon.png'],
+    apple: [{ url: '/favicon.png', type: 'image/png', sizes: '101x87' }],
+  },
   openGraph: {
     type: 'website',
     locale: 'en_CA',

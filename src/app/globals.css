@@ -2085,6 +2085,27 @@ footer {
   line-height: 1.4;
 }
 
+.auth-header-action {
+  margin-top: -16px;
+  margin-bottom: 24px;
+  color: #c9c6c2;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.auth-header-action a {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--duration-fast);
+}
+
+.auth-header-action a:hover {
+  color: var(--color-primary-hover);
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;

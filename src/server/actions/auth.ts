@@ -13,7 +13,7 @@ import { hashIp, hashToken, getClientIp, hashVerificationCode, safeCompare } fro
 import { checkRateLimit, type RateLimitResult, type RateLimitScope } from '@/lib/rate-limit';
 import { signUpSchema, signInSchema, SIGNUP_CONSENT_WORDING } from '@/lib/validation/auth';
 import { recordConsents } from '@/server/consent';
-import { actionOk, actionError, GENERIC_ERROR, type ActionResult } from './types';
+import { actionOk, actionError, type ActionResult } from './types';
 import { renderCustomBroadcastEmail } from '@/lib/email/templates';
 import { sendEmail } from '@/lib/email/send';
 
@@ -37,6 +37,20 @@ type SignupRequestOptions = { resend?: boolean };
 
 const AUTH_UNAVAILABLE =
   'Account access is temporarily unavailable. Please try again in a few minutes.';
+const VERIFICATION_EMAIL_FAILED =
+  'We could not send your verification email right now. Please try again in a few minutes.';
+const ACCOUNT_CREATION_FAILED =
+  'We could not finish creating your account. Please try again, or request a new verification code if this one has expired.';
+const ACCOUNT_CREATED_SIGN_IN_FAILED =
+  'Your account may have been created, but we could not sign you in. Try logging in with your email and password.';
+const SIGN_IN_UNAVAILABLE =
+  'We could not sign you in right now. Please try again in a few minutes.';
+
+function betterAuthErrorCode(error: unknown): string | null {
+  if (!(error instanceof APIError)) return null;
+  const body = error.body as { code?: unknown } | undefined;
+  return typeof body?.code === 'string' ? body.code : null;
+}
 
 /** Admin login throttling is enabled unless explicitly disabled at runtime. */
 const ADMIN_RATE_LIMITS_ENABLED = process.env.ADMIN_RATE_LIMITS_ENABLED !== 'false';
@@ -164,7 +178,7 @@ export async function signUpAction(
     return actionOk({ requiresEmailVerification: true, email: normalized.raw });
   } catch (error) {
     console.error('[signup] verification email failed', error);
-    return actionError(GENERIC_ERROR);
+    return actionError(VERIFICATION_EMAIL_FAILED);
   }
 }
 
@@ -268,13 +282,13 @@ export async function verifySignupEmailAction(
     const role = (result?.user as { role?: Role } | undefined)?.role ?? 'artist';
     return actionOk({ redirectTo: safeRedirect(input.redirectTo, role) });
   } catch (error) {
-    if (
-      error instanceof APIError &&
-      (error.body as { code?: string } | undefined)?.code === 'USER_ALREADY_EXISTS'
-    )
+    const code = betterAuthErrorCode(error);
+    if (code === 'USER_ALREADY_EXISTS' || code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL')
       return actionError('An account with that email already exists. Try signing in instead.');
+    if (code === 'FAILED_TO_CREATE_SESSION') return actionError(ACCOUNT_CREATED_SIGN_IN_FAILED);
+    if (code === 'FAILED_TO_CREATE_USER') return actionError(ACCOUNT_CREATION_FAILED);
     console.error('[signup] account creation failed after email verification', error);
-    return actionError(GENERIC_ERROR);
+    return actionError(ACCOUNT_CREATION_FAILED);
   }
 }
 
@@ -365,7 +379,7 @@ async function signInForPortal(
       return actionError('That email or password is not correct.');
     }
     console.error('[signin] failed', error);
-    return actionError(GENERIC_ERROR);
+    return actionError(SIGN_IN_UNAVAILABLE);
   }
 }
 
