@@ -19,7 +19,31 @@ import type { ArtistRecipient } from '@/lib/email/types';
 
 export type AdminApplicationStatus = 'pending' | 'approved' | 'rejected';
 
+export type AdminArtistSignupRecord = {
+  recordType: 'signup';
+  id: string;
+  artistId: null;
+  applicationNumber: string;
+  fullName: string;
+  stageName: string;
+  actType: null;
+  discipline: string;
+  location: string;
+  email: string;
+  phone: string;
+  websiteUrl: string;
+  submissionDate: string;
+  status: 'pending';
+  lifecycleStatus: 'not_applied';
+  avatarUrl: null;
+  profileStatus: 'hidden';
+  submittedAt: null;
+  createdAt: Date;
+  verifiedVotes: 0;
+};
+
 export type AdminApplicationRecord = {
+  recordType: 'application';
   id: string;
   artistId: string;
   applicationNumber: string;
@@ -130,6 +154,7 @@ function mapRow(
     pendingEdits: Record<string, unknown> | null;
     pendingEditsSubmittedAt: Date | null;
     userName: string | null;
+    userEmail: string;
   },
   voteStats: {
     verifiedVotes: number;
@@ -145,6 +170,7 @@ function mapRow(
       : [];
   const musicEntries = Object.entries(row.musicLinks ?? {}).filter(([, url]) => Boolean(url));
   return {
+    recordType: 'application',
     id: row.id,
     artistId: row.artistId,
     applicationNumber: `APP-${row.id.slice(0, 8).toUpperCase()}`,
@@ -153,7 +179,7 @@ function mapRow(
     actType: row.actType,
     discipline: row.actType === 'band' ? 'Country band' : 'Country artist',
     location: [row.locationCity, row.locationProvince].filter(Boolean).join(', ') || 'Ontario',
-    email: row.contactEmail || '',
+    email: row.contactEmail || row.userEmail,
     phone: row.contactPhone || '',
     websiteUrl: row.websiteUrl || '',
     formationYear: row.formationYear,
@@ -228,6 +254,7 @@ const adminApplicationColumns = {
   pendingEdits: applications.pendingEdits,
   pendingEditsSubmittedAt: applications.pendingEditsSubmittedAt,
   userName: users.name,
+  userEmail: users.email,
 };
 
 export async function getAdminApplications(): Promise<AdminApplicationRecord[]> {
@@ -241,6 +268,45 @@ export async function getAdminApplications(): Promise<AdminApplicationRecord[]> 
   const records = rows.map((row) => mapRow(row, counts.get(row.artistId)));
   const assignments = await getQualifierAssignments(rows.map((row) => row.artistId));
   return records.map((record) => ({ ...record, qualifyingShow: assignments.get(record.artistId) }));
+}
+
+/** Artist accounts created through sign-up that have not started an application. */
+export async function getAdminArtistSignups(): Promise<AdminArtistSignupRecord[]> {
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .leftJoin(artists, eq(artists.userId, users.id))
+    .leftJoin(applications, eq(applications.artistId, artists.id))
+    .where(and(eq(users.role, 'artist'), isNull(applications.id)))
+    .orderBy(desc(users.createdAt), asc(users.name), asc(users.email));
+
+  return rows.map((row) => ({
+    recordType: 'signup' as const,
+    id: row.id,
+    artistId: null,
+    applicationNumber: `SIGNUP-${row.id.slice(0, 8).toUpperCase()}`,
+    fullName: row.name || row.email,
+    stageName: row.name || 'Artist account',
+    actType: null,
+    discipline: 'Artist account',
+    location: 'Not provided',
+    email: row.email,
+    phone: '',
+    websiteUrl: '',
+    submissionDate: new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium' }).format(row.createdAt),
+    status: 'pending' as const,
+    lifecycleStatus: 'not_applied' as const,
+    avatarUrl: null,
+    profileStatus: 'hidden' as const,
+    submittedAt: null,
+    createdAt: row.createdAt,
+    verifiedVotes: 0,
+  }));
 }
 
 export async function getAdminReapprovalApplications(): Promise<AdminApplicationRecord[]> {

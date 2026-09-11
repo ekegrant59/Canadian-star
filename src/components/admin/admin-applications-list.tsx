@@ -4,10 +4,12 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowUpDown, ChevronDown, Eye, Search } from 'lucide-react';
-import type { AdminApplicationRecord } from '@/server/queries/admin';
+import type { AdminApplicationRecord, AdminArtistSignupRecord } from '@/server/queries/admin';
 import { ProfileImage } from '@/components/shared/profile-image';
 
-const lifecycleLabels: Record<AdminApplicationRecord['lifecycleStatus'], string> = {
+type AdminArtistListRecord = AdminApplicationRecord | AdminArtistSignupRecord;
+
+const lifecycleLabels: Record<AdminArtistListRecord['lifecycleStatus'], string> = {
   draft: 'Draft',
   submitted: 'Submitted',
   under_review: 'Under review',
@@ -16,13 +18,14 @@ const lifecycleLabels: Record<AdminApplicationRecord['lifecycleStatus'], string>
   finalist: 'Finalist',
   rejected: 'Rejected',
   withdrawn: 'Withdrawn',
+  not_applied: 'Not applied',
 };
 
 export function AdminApplicationsList({
   applications,
   showVoting = false,
 }: {
-  applications: AdminApplicationRecord[];
+  applications: AdminArtistListRecord[];
   showVoting?: boolean;
 }) {
   const router = useRouter();
@@ -31,6 +34,7 @@ export function AdminApplicationsList({
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<'submissionDate' | 'stageName'>('submissionDate');
   const [sortAsc, setSortAsc] = useState(false);
+  const signupCount = applications.filter((app) => app.lifecycleStatus === 'not_applied').length;
 
   const filteredApplications = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -54,7 +58,8 @@ export function AdminApplicationsList({
         const comparison =
           sortField === 'stageName'
             ? a.stageName.localeCompare(b.stageName)
-            : (a.submittedAt?.getTime() ?? 0) - (b.submittedAt?.getTime() ?? 0);
+            : (a.submittedAt?.getTime() ?? ('createdAt' in a ? a.createdAt.getTime() : 0)) -
+              (b.submittedAt?.getTime() ?? ('createdAt' in b ? b.createdAt.getTime() : 0));
         return sortAsc ? comparison : -comparison;
       });
   }, [applications, searchQuery, showVoting, sortAsc, sortField, statusFilter, typeFilter]);
@@ -78,7 +83,10 @@ export function AdminApplicationsList({
             ARTIST APPLICATIONS
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Review submitted applications and manage their competition status.
+            Track every artist account and manage submitted applications in one place.
+          </p>
+          <p className="mt-2 text-xs font-medium text-gray-400 tabular-nums">
+            {applications.length} accounts · {signupCount} not applied
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -118,7 +126,7 @@ export function AdminApplicationsList({
                 </th>
                 <th className="px-4 py-3.5">Type</th>
                 <th className="px-4 py-3.5">Location</th>
-                <th className="px-4 py-3.5">Submitted</th>
+                <th className="px-4 py-3.5">Signed up / submitted</th>
                 <th className="px-4 py-3.5">Status</th>
                 <th className="px-4 py-3.5">Public profile</th>
                 {showVoting && <th className="px-4 py-3.5">Votes</th>}
@@ -129,17 +137,27 @@ export function AdminApplicationsList({
               {filteredApplications.map((app) => (
                 <tr
                   key={app.id}
-                  className="cursor-pointer transition-colors hover:bg-gray-50/80"
-                  onClick={() => router.push(`/admin/applications/${app.id}`)}
+                  className={
+                    app.recordType === 'signup'
+                      ? 'bg-gray-50/30'
+                      : 'cursor-pointer transition-colors hover:bg-gray-50/80'
+                  }
+                  onClick={() => {
+                    if (app.recordType !== 'signup') router.push(`/admin/applications/${app.id}`);
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      router.push(`/admin/applications/${app.id}`);
+                      if (app.recordType !== 'signup') router.push(`/admin/applications/${app.id}`);
                     }
                   }}
-                  tabIndex={0}
-                  role="link"
-                  aria-label={`Review ${app.stageName}`}
+                  tabIndex={app.recordType === 'signup' ? -1 : 0}
+                  role={app.recordType === 'signup' ? undefined : 'link'}
+                  aria-label={
+                    app.recordType === 'signup'
+                      ? `${app.stageName} has not applied`
+                      : `Review ${app.stageName}`
+                  }
                 >
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
@@ -150,18 +168,26 @@ export function AdminApplicationsList({
                       />
                       <div>
                         <p className="font-bold text-gray-900">{app.stageName}</p>
-                        <p className="text-[10px] text-gray-400">{app.applicationNumber}</p>
+                        <p className="text-[10px] text-gray-400">
+                          {app.recordType === 'signup' ? app.email : app.applicationNumber}
+                        </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-gray-600 capitalize">{app.actType}</td>
+                  <td className="px-4 py-3.5 text-gray-600 capitalize">
+                    {app.actType ?? 'Not provided'}
+                  </td>
                   <td className="px-4 py-3.5 text-gray-600">{app.location}</td>
                   <td className="px-4 py-3.5 text-gray-600">{app.submissionDate}</td>
                   <td className="px-4 py-3.5">
                     <StatusBadge status={app.lifecycleStatus} />
                   </td>
                   <td className="px-4 py-3.5">
-                    <ProfileStatusBadge status={app.profileStatus} />
+                    {app.recordType === 'signup' ? (
+                      <span className="text-[10px] font-semibold text-gray-400">Not created</span>
+                    ) : (
+                      <ProfileStatusBadge status={app.profileStatus} />
+                    )}
                   </td>
                   {showVoting && (
                     <td className="px-4 py-3.5 font-black text-gray-900">
@@ -169,22 +195,38 @@ export function AdminApplicationsList({
                     </td>
                   )}
                   <td className="px-4 py-3.5 text-right">
-                    <Link
-                      href={`/admin/applications/${app.id}`}
-                      onClick={(event) => event.stopPropagation()}
-                      className="inline-flex rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-900"
-                      title={`Review ${app.stageName}`}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Link>
+                    {app.recordType === 'signup' ? (
+                      <span className="text-[10px] font-semibold text-gray-400">
+                        No application
+                      </span>
+                    ) : (
+                      <Link
+                        href={`/admin/applications/${app.id}`}
+                        onClick={(event) => event.stopPropagation()}
+                        className="inline-flex rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                        title={`Review ${app.stageName}`}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))}
+              {filteredApplications.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={showVoting ? 8 : 7}
+                    className="px-5 py-12 text-center text-sm text-gray-500"
+                  >
+                    No artist accounts match these filters.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
         <div className="border-t border-gray-100 bg-gray-50/50 p-4 text-xs text-gray-500">
-          Showing {filteredApplications.length} of {applications.length} applications
+          Showing {filteredApplications.length} of {applications.length} artist accounts
         </div>
       </div>
     </div>
@@ -219,13 +261,15 @@ function FilterSelect({
   );
 }
 
-function StatusBadge({ status }: { status: AdminApplicationRecord['lifecycleStatus'] }) {
+function StatusBadge({ status }: { status: AdminArtistListRecord['lifecycleStatus'] }) {
   const tone =
     status === 'rejected' || status === 'withdrawn'
       ? 'border-red-200 bg-red-50 text-red-700'
-      : status === 'shortlisted' || status === 'finalist'
-        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-        : 'border-orange-200 bg-orange-50 text-orange-700';
+      : status === 'not_applied'
+        ? 'border-gray-200 bg-gray-100 text-gray-600'
+        : status === 'shortlisted' || status === 'finalist'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'border-orange-200 bg-orange-50 text-orange-700';
   return (
     <span
       className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase ${tone}`}
