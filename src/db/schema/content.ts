@@ -177,7 +177,9 @@ export const auditLog = pgTable(
   'audit_log',
   {
     id: text('id').primaryKey(),
-    actorId: text('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    // Deliberately not a foreign key. Audit rows are immutable, so an
+    // ON DELETE action cannot rewrite actor_id when a user is removed.
+    actorId: text('actor_id'),
     actorEmail: text('actor_email'),
 
     action: text('action').notNull(),

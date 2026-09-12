@@ -43,7 +43,7 @@ const acceptSchema = z
 const INVITATION_TTL_MS = 24 * 60 * 60 * 1000;
 
 async function audit(
-  actorId: string,
+  actor: { id: string; email: string },
   action: string,
   entityId: string,
   before: unknown,
@@ -52,7 +52,8 @@ async function audit(
   const requestHeaders = await headers();
   await db.insert(auditLog).values({
     id: randomUUID(),
-    actorId,
+    actorId: actor.id,
+    actorEmail: actor.email,
     action,
     entityType: 'user',
     entityId,
@@ -120,7 +121,7 @@ export async function createAdminUserAction(input: unknown) {
       role: 'admin',
       adminAccessLevel: parsed.data.accessLevel,
     });
-    await audit(actor.id, 'admin.created', userId, null, {
+    await audit(actor, 'admin.created', userId, null, {
       email: normalized.canonical,
       accessLevel: parsed.data.accessLevel,
     });
@@ -170,7 +171,7 @@ export async function resendAdminInvitationAction(input: unknown) {
     name: target.name || 'Administrator',
     email: target.email,
   });
-  await audit(actor.id, 'admin.invitation_resent', target.id, null, {
+  await audit(actor, 'admin.invitation_resent', target.id, null, {
     expiresAt: invitation.expiresAt,
   });
   return invitation.success
@@ -277,7 +278,7 @@ export async function updateAdminAccessAction(input: unknown) {
     .where(eq(users.id, parsed.data.userId));
   await db.delete(sessions).where(eq(sessions.userId, parsed.data.userId));
   await audit(
-    actor.id,
+    actor,
     'admin.access_changed',
     parsed.data.userId,
     { accessLevel: target.accessLevel },
@@ -332,7 +333,7 @@ export async function setAdminActiveAction(input: unknown) {
     .where(eq(users.id, parsed.data.userId));
   if (!parsed.data.active) await db.delete(sessions).where(eq(sessions.userId, parsed.data.userId));
   await audit(
-    actor.id,
+    actor,
     parsed.data.active ? 'admin.reactivated' : 'admin.deactivated',
     parsed.data.userId,
     { active: !target.bannedAt },
@@ -390,6 +391,7 @@ export async function deleteAdminUserAction(input: unknown) {
       await tx.insert(auditLog).values({
         id: randomUUID(),
         actorId: actor.id,
+        actorEmail: actor.email,
         action: 'admin.deleted',
         entityType: 'user',
         entityId: target.id,
