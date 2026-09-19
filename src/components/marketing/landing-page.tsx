@@ -66,11 +66,11 @@ const prizes = [
   },
   {
     title: 'PHOTOGRAPHY',
-    copy: 'A professional photoshoot to build a compelling visual brand for press and social media.',
+    copy: '1-2 hour photography session with 20 high resolution photos by Zach Bird Photography.',
   },
   {
     title: 'VIDEO',
-    copy: 'High-quality music video production for the artist’s first post-competition single.',
+    copy: 'Small media package including a short video edited by Zach Bird Photography.',
   },
   {
     title: 'MENTORSHIP',
