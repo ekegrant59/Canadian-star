@@ -62,7 +62,7 @@ export type LandingScheduleItem = {
 const prizes = [
   {
     title: 'RECORDING',
-    copy: 'A professionally produced, radio-quality country single by Shawn Moore Productions. Record live at a premier Ontario studio with an award-winning producer, capturing the energy, emotion and grit of your performance. Work one-on-one on arrangement, instrument tracking and vocal delivery, with professional engineering, mixing and final mastering. Leave with a fully mastered single that meets commercial broadcast standards, ready for distribution, streaming platforms and country radio airplay.',
+    copy: 'A professionally recorded, mixed and mastered country single by Shawn Moore Productions, ready for streaming and radio.',
   },
   {
     title: 'CASH PRIZE',
