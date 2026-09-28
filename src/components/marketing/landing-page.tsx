@@ -62,27 +62,27 @@ export type LandingScheduleItem = {
 const prizes = [
   {
     title: 'RECORDING',
-    copy: 'Professional recording studio opportunity to help the winning artist develop and record new material.',
+    copy: 'A professionally produced, radio-quality country single by Shawn Moore Productions. Record live at a premier Ontario studio with an award-winning producer, capturing the energy, emotion and grit of your performance. Work one-on-one on arrangement, instrument tracking and vocal delivery, with professional engineering, mixing and final mastering. Leave with a fully mastered single that meets commercial broadcast standards, ready for distribution, streaming platforms and country radio airplay.',
   },
   {
-    title: 'PHOTOGRAPHY',
-    copy: '1-2 hour photography session with 20 high resolution photos by Zach Bird Photography.',
+    title: 'CASH PRIZE',
+    copy: 'A cash prize to support the next step in your music career.',
   },
   {
-    title: 'VIDEO',
-    copy: 'Small media package including a short video edited by Zach Bird Photography.',
+    title: 'PHOTOGRAPHY & VIDEO',
+    copy: 'A combined photography and video package with Zack Bird to showcase you and your music.',
+  },
+  {
+    title: 'LIVE PERFORMANCES',
+    copy: 'A live performance spot at Hollyrood Jamboree, plus more opportunities to bring your music to new audiences.',
   },
   {
     title: 'MENTORSHIP',
-    copy: 'One-on-one sessions with industry experts covering A&R, booking, and artist management.',
+    copy: 'A mentorship package to help you navigate the music industry and plan the next steps in your career.',
   },
   {
     title: 'PROMOTION',
-    copy: 'A targeted digital marketing and PR campaign to announce the winner to the world.',
-  },
-  {
-    title: 'LIVE PERFORMANCE',
-    copy: 'Guaranteed slots at major Canadian country music festivals in the upcoming season.',
+    copy: 'A targeted marketing and PR campaign by all our sponsors and partners to announce the winner.',
   },
 ] as const;
 
@@ -514,8 +514,10 @@ export function LandingPage({
             <span className="pill-eyebrow">THE GRAND PRIZE</span>
             <h2>WIN MORE THAN THE TITLE. BUILD YOUR CAREER.</h2>
             <p>
-              The winner of The Next Great Canadian Country Star Competition will receive a
-              career-focused prize package designed to help take their music to the next level.
+              The Next Great Canadian Country Star Grand Prize Package features a career-defining
+              live recording session at a premier Ontario studio with an award-winning music
+              producer, plus cash, photography and video, live performances, mentorship and
+              promotion.
             </p>
           </div>
           <div className="prize-feature">
@@ -530,8 +532,8 @@ export function LandingPage({
             <div className="prize-feature-content">
               <h3>THE NEXT CHAPTER STARTS HERE</h3>
               <p>
-                A prize package built around exposure, professional development and opportunities
-                for the winner’s next stage of their career.
+                From rising talent to radio-ready professional. Record your single with Shawn Moore
+                Productions and build your career with the support of our sponsors and partners.
               </p>
             </div>
           </div>
