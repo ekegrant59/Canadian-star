@@ -10,10 +10,10 @@ export default function ContactPage() {
       intro="Questions about applying, attending a show, partnerships, or an artist profile? We would be glad to hear from you."
     >
       <div className="legal-contact-grid">
-        <a href="mailto:hello@nextgreatcanadiancountrystar.ca" className="legal-contact-card">
+        <a href="mailto:backstage@hellion-entertainment.com" className="legal-contact-card">
           <Mail aria-hidden="true" />
           <h2>General enquiries</h2>
-          <p>hello@nextgreatcanadiancountrystar.ca</p>
+          <p>backstage@hellion-entertainment.com</p>
         </a>
         <div className="legal-contact-card">
           <MapPin aria-hidden="true" />
