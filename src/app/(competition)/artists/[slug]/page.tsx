@@ -123,6 +123,7 @@ export default async function ArtistProfilePage({ params }: PageProps) {
             name: sponsor.name,
             websiteUrl: sponsor.websiteUrl,
             logoUrl: publicMediaUrl(sponsor.logoKey, 'sponsorLogo'),
+            placement: sponsor.placement,
           }))}
         />
       </Suspense>

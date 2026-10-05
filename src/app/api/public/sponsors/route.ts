@@ -11,6 +11,7 @@ export async function GET() {
         name: sponsor.name,
         websiteUrl: sponsor.websiteUrl,
         logoUrl: publicMediaUrl(sponsor.logoKey, 'sponsorLogo'),
+        placement: sponsor.placement,
       })),
     },
     { headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' } },

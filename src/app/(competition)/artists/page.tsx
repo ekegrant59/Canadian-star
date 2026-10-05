@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { SiteHeader, Brand } from '@/components/shared/site-header';
+import { SponsorMarquee } from '@/components/shared/sponsor-marquee';
 import { Search, MapPin, Vote, Sparkles } from 'lucide-react';
 import type { VotingArtist } from '@/types/landing';
 import { VotingModal } from '@/components/voting/voting-modal';
@@ -14,6 +15,7 @@ type PublicSponsor = {
   name: string;
   websiteUrl: string | null;
   logoUrl: string | null;
+  placement: string;
 };
 
 export default function ArtistsRosterPage() {
@@ -57,6 +59,11 @@ export default function ArtistsRosterPage() {
     artists.forEach((a) => set.add(a.genre));
     return ['All', ...Array.from(set)];
   }, [artists]);
+
+  const topSponsors = useMemo(
+    () => sponsors.filter((sponsor) => sponsor.placement === 'top'),
+    [sponsors],
+  );
 
   const filteredArtists = useMemo(() => {
     return artists.filter((artist) => {
@@ -231,34 +238,7 @@ export default function ArtistsRosterPage() {
       </section>
 
       {/* Partners Marquee */}
-      <section className="partners">
-        <span>OFFICIAL PARTNERS</span>
-        <div className="marquee-container no-scrollbar">
-          <div className="marquee-track">
-            {[...Array(3)].map((_, setIdx) => (
-              <div className="marquee-group" key={setIdx}>
-                {(sponsors.length ? sponsors : []).map((sponsor) => (
-                  <a
-                    key={`${setIdx}-${sponsor.id}`}
-                    href={sponsor.websiteUrl ?? '#'}
-                    target={sponsor.websiteUrl ? '_blank' : undefined}
-                    rel="noreferrer"
-                    aria-label={sponsor.name}
-                  >
-                    <Image
-                      src={sponsor.logoUrl ?? '/images/artist-profile-hero.jpg'}
-                      width={160}
-                      height={36}
-                      unoptimized
-                      alt={sponsor.name}
-                    />
-                  </a>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <SponsorMarquee sponsors={topSponsors} label="OFFICIAL PARTNERS" />
 
       {/* Footer */}
       <footer>

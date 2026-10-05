@@ -18,12 +18,14 @@ import {
 import type { VotingArtist } from '@/types/landing';
 import { VotingModal } from '@/components/voting/voting-modal';
 import { MusicCover } from '@/components/shared/music-cover';
+import { SponsorMarquee } from '@/components/shared/sponsor-marquee';
 
 type PublicSponsor = {
   id: string;
   name: string;
   websiteUrl: string | null;
   logoUrl: string | null;
+  placement: string;
 };
 
 interface ArtistProfileViewProps {
@@ -40,6 +42,7 @@ export function ArtistProfileView({ artist, votingOpen, sponsors }: ArtistProfil
       .filter(([, url]) => Boolean(url))
       .map(([key, url]) => ({ url, title: musicLinkLabel(key, url), subtitle: null, image: null }));
   const embeddedVideo = videoEmbedUrl(artist.performanceVideoUrl);
+  const topSponsors = sponsors.filter((sponsor) => sponsor.placement === 'top');
 
   return (
     <main id="main" className="min-h-screen bg-[#0e0e0e] text-[#e5e2e1]">
@@ -282,34 +285,7 @@ export function ArtistProfileView({ artist, votingOpen, sponsors }: ArtistProfil
       </div>
 
       {/* Partners Marquee */}
-      <section className="partners mt-16">
-        <span>OFFICIAL PARTNERS</span>
-        <div className="marquee-container no-scrollbar">
-          <div className="marquee-track">
-            {[...Array(3)].map((_, setIdx) => (
-              <div className="marquee-group" key={setIdx}>
-                {sponsors.map((sponsor) => (
-                  <a
-                    key={`${setIdx}-${sponsor.id}`}
-                    href={sponsor.websiteUrl ?? '#'}
-                    target={sponsor.websiteUrl ? '_blank' : undefined}
-                    rel="noreferrer"
-                    aria-label={sponsor.name}
-                  >
-                    <Image
-                      src={sponsor.logoUrl ?? '/images/artist-profile-hero.jpg'}
-                      width={160}
-                      height={36}
-                      unoptimized
-                      alt={sponsor.name}
-                    />
-                  </a>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <SponsorMarquee sponsors={topSponsors} label="OFFICIAL PARTNERS" />
 
       {/* Footer */}
       <footer>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AlertCircle, CheckCircle2, Mail, Megaphone, X } from 'lucide-react';
 import { useState, useEffect, useRef, type FormEvent, type PointerEvent } from 'react';
 import { SiteHeader, Brand } from '@/components/shared/site-header';
+import { SponsorMarquee } from '@/components/shared/sponsor-marquee';
 import { StageHero } from './stages/stage-hero';
 import { StageClosingCta } from './stages/stage-closing-cta';
 import { LandingStageRenderer } from './landing-stage-renderer';
@@ -754,56 +755,5 @@ export function LandingPage({
         </div>
       </footer>
     </main>
-  );
-}
-
-function SponsorMarquee({
-  sponsors,
-  label,
-}: {
-  sponsors: Array<{ id: string; name: string; websiteUrl: string | null; logoUrl: string | null }>;
-  label: string;
-}) {
-  return (
-    <section className="partners">
-      <span>{label}</span>
-      <div className="marquee-container no-scrollbar">
-        <div className="marquee-track">
-          {[...Array(3)].map((_, setIdx) => (
-            <div className="marquee-group" key={setIdx}>
-              {sponsors.length ? (
-                sponsors.map((sponsor) => {
-                  const sponsorLogo = sponsor.logoUrl ? (
-                    <Image
-                      src={sponsor.logoUrl}
-                      width={160}
-                      height={36}
-                      unoptimized
-                      alt={sponsor.name}
-                    />
-                  ) : (
-                    <strong>{sponsor.name}</strong>
-                  );
-                  return sponsor.websiteUrl ? (
-                    <a
-                      key={`${setIdx}-${sponsor.id}`}
-                      href={sponsor.websiteUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {sponsorLogo}
-                    </a>
-                  ) : (
-                    <span key={`${setIdx}-${sponsor.id}`}>{sponsorLogo}</span>
-                  );
-                })
-              ) : (
-                <span>PARTNERS TO BE ANNOUNCED</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
