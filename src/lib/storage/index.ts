@@ -91,6 +91,7 @@ export const MEDIA_VARIANTS = {
   thumb: 'c_fill,g_auto,w_400,h_400,q_auto,f_auto',
   card: 'c_fill,g_auto,w_800,h_600,q_auto,f_auto',
   profile: 'c_limit,w_1200,q_auto,f_auto',
+  sponsorLogo: 'c_limit,w_400,h_160,q_auto,f_auto',
   /** Open Graph requires exact dimensions. */
   social: 'c_fill,g_auto,w_1200,h_630,q_auto,f_jpg',
 } as const;
@@ -108,6 +109,33 @@ export function mediaUrl(publicId: string, variant: MediaVariant = 'card'): stri
   if (!cloudName) throw new Error('CLOUDINARY_CLOUD_NAME is not set');
 
   return `https://res.cloudinary.com/${cloudName}/image/upload/${MEDIA_VARIANTS[variant]}/${publicId}`;
+}
+
+/**
+ * Resolves a stored media value to a public URL.
+ *
+ * `photo_key`/`logo_key` rows are not uniformly bare public_ids: admin uploads
+ * persist Cloudinary's `secure_url`, and the judge/sponsor URL fields accept
+ * pasted links or local paths. Those already-absolute values must pass through
+ * untouched; only a bare public_id should be wrapped in a delivery URL.
+ */
+export function publicMediaUrl(
+  value: string | null | undefined,
+  variant: MediaVariant = 'card',
+): string | null {
+  if (!value) return null;
+  if (
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('//') ||
+    value.startsWith('/')
+  ) {
+    return value;
+  }
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  return cloudName
+    ? `https://res.cloudinary.com/${cloudName}/image/upload/${MEDIA_VARIANTS[variant]}/${value}`
+    : null;
 }
 
 /** Permanently removes uploaded artist photos from Cloudinary. */

@@ -18,6 +18,7 @@ import type { CompetitionStage } from '@/config/event';
 import { getVotingClosingSoonWindow, isWithinWindow } from '@/lib/competition/timeline';
 import { EVENT } from '@/config/event';
 import { SITE_URL } from '@/config/site-url';
+import { publicMediaUrl } from '@/lib/storage';
 
 export const metadata: Metadata = {
   title: 'The Next Great Canadian Country Star',
@@ -260,14 +261,6 @@ function getPhaseDeadlineLabel(stage: CompetitionStage, votingClosingSoon: boole
   if (stage === 'applications') return 'APPLICATIONS CLOSE';
   if (stage === 'voting') return 'VOTING CLOSES';
   return 'PHASE ENDS';
-}
-
-function publicMediaUrl(key: string | null) {
-  if (!key) return null;
-  if (key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/')) return key;
-  return process.env.CLOUDINARY_CLOUD_NAME
-    ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/c_fill,g_auto,w_800,h_600,q_auto,f_auto/${key}`
-    : null;
 }
 
 function publicPhotoUrl(key: string | null, fallbackIndex: number) {

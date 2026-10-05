@@ -7,6 +7,7 @@ import { requireAdminWriteOrThrow, requireRoleOrThrow } from '@/lib/auth/guards'
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getCloudinaryConfig, signUploadParams } from '@/lib/storage/cloudinary';
+import { publicMediaUrl } from '@/lib/storage';
 
 const contentPayloadSchema = z.object({
   homepageAnnouncement: z
@@ -45,11 +46,7 @@ const contentPayloadSchema = z.object({
 });
 
 function imageUrl(key: string | null) {
-  if (!key) return '';
-  if (key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/')) return key;
-  return process.env.CLOUDINARY_CLOUD_NAME
-    ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/c_fill,g_auto,w_400,h_400,q_auto,f_auto/${key}`
-    : '';
+  return publicMediaUrl(key, 'thumb') ?? '';
 }
 
 function contentMediaPublicId(value: string | null) {

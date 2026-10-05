@@ -11,6 +11,7 @@ import {
 import { EVENT } from '@/config/event';
 import { SITE_URL } from '@/config/site-url';
 import { resolveMusicLinkMetadata } from '@/lib/music-metadata';
+import { publicMediaUrl } from '@/lib/storage';
 
 export const instant = false;
 
@@ -121,10 +122,7 @@ export default async function ArtistProfilePage({ params }: PageProps) {
             id: sponsor.id,
             name: sponsor.name,
             websiteUrl: sponsor.websiteUrl,
-            logoUrl:
-              sponsor.logoKey && process.env.CLOUDINARY_CLOUD_NAME
-                ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/c_limit,w_400,h_160,q_auto,f_auto/${sponsor.logoKey}`
-                : null,
+            logoUrl: publicMediaUrl(sponsor.logoKey, 'sponsorLogo'),
           }))}
         />
       </Suspense>
