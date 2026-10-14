@@ -135,6 +135,10 @@ export function StageHero({ viewModel }: StageHeroProps) {
           })}
         </h1>
 
+        <p className="mt-4 text-lg font-semibold tracking-widest text-white uppercase sm:text-xl">
+          Ontario Edition
+        </p>
+
         {/* Subhead */}
         <p className="hero-subhead mx-auto max-w-2xl">{subhead}</p>
 
