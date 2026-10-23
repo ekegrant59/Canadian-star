@@ -245,7 +245,10 @@ export function EmailStudioView({ recipients }: { recipients: ArtistRecipient[] 
         customCtaText: ctaText,
         customCtaUrl: ctaUrl,
       });
-      if (!result.ok) throw new Error(result.error);
+      if (!result.ok) {
+        setToastMessage({ text: result.error, type: 'error' });
+        return;
+      }
       setToastMessage({
         text: `Test email dispatched to ${testEmailAddress}.`,
         type: 'success',
@@ -269,7 +272,10 @@ export function EmailStudioView({ recipients }: { recipients: ArtistRecipient[] 
         ctaText,
         ctaUrl,
       });
-      if (!result.ok) throw new Error(result.error);
+      if (!result.ok) {
+        setToastMessage({ text: result.error, type: 'error' });
+        return;
+      }
       setIsBroadcastModalOpen(false);
       setToastMessage({
         text: result.data.failedCount

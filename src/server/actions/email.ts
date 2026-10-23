@@ -14,7 +14,7 @@ import {
 import { requireAdminWriteOrThrow } from '@/lib/auth/guards';
 import { renderCustomBroadcastEmail } from '@/lib/email/templates';
 import { sendEmail, sendTestEmailAction } from '@/lib/email/send';
-import { actionError, actionOk } from './types';
+import { actionError, actionOk, GENERIC_ERROR } from './types';
 import type { EmailAudienceFilter } from '@/lib/email/types';
 import { normalizeEmail } from '@/lib/email-normalize';
 import { escapeHtml } from '@/lib/email/layout';
@@ -87,7 +87,16 @@ export async function sendAdminBroadcastAction(input: {
   }
   const parsed = broadcastSchema.safeParse(input);
   if (!parsed.success) return actionError('Check the subject, content, audience, and links.');
-  const { audience, artistId } = parsed.data;
+  try {
+    return await dispatchBroadcast(parsed.data);
+  } catch (error) {
+    console.error('[email] Broadcast failed:', error);
+    return actionError(GENERIC_ERROR);
+  }
+}
+
+async function dispatchBroadcast(data: z.infer<typeof broadcastSchema>) {
+  const { audience, artistId } = data;
   let recipientData: Array<{
     email: string;
     artistName?: string;
@@ -182,39 +191,11 @@ export async function sendAdminBroadcastAction(input: {
                     : undefined,
         ),
       );
-    const canonicalEmails = rows
-      .map((r) => {
-        const normalized = r.email ? normalizeEmail(r.email) : null;
-        return normalized?.ok ? normalized.canonical : null;
-      })
-      .filter((value): value is string => Boolean(value));
-    const consentRows = canonicalEmails.length
-      ? await db
-          .select({
-            emailCanonical: emailConsents.emailCanonical,
-            granted: emailConsents.granted,
-            createdAt: emailConsents.createdAt,
-          })
-          .from(emailConsents)
-          .where(
-            and(
-              inArray(emailConsents.emailCanonical, canonicalEmails),
-              eq(emailConsents.consentType, 'marketing'),
-            ),
-          )
-      : [];
-    const latestConsent = new Map<string, { granted: boolean; createdAt: Date }>();
-    for (const consent of consentRows)
-      if (
-        !latestConsent.has(consent.emailCanonical) ||
-        latestConsent.get(consent.emailCanonical)!.createdAt < consent.createdAt
-      )
-        latestConsent.set(consent.emailCanonical, consent);
+    // Artist audiences skip the marketing consent check: these messages are
+    // about the applicant's own application, not marketing. Keep artist
+    // broadcasts to competition business only.
     recipientData = rows
-      .filter((r) => {
-        const normalized = r.email ? normalizeEmail(r.email) : null;
-        return normalized?.ok && latestConsent.get(normalized.canonical)?.granted;
-      })
+      .filter((r) => r.email && normalizeEmail(r.email).ok)
       .map((r) => ({
         email: r.email!,
         artistName: r.artistName,
@@ -234,7 +215,7 @@ export async function sendAdminBroadcastAction(input: {
         .replace(/{{act_name}}/g, recipient.actName || recipient.artistName || 'Artist')
         .replace(/{{status}}/g, recipient.status || 'Competition supporter')
         .replace(/{{show_name}}/g, recipient.showName || 'Qualifying Showcase');
-    const safeBodyHtml = escapeHtml(replaceTags(parsed.data.bodyHtml))
+    const safeBodyHtml = escapeHtml(replaceTags(data.bodyHtml))
       .split(/\n{2,}/)
       .map((paragraph) => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`)
       .join('');
@@ -242,14 +223,14 @@ export async function sendAdminBroadcastAction(input: {
       ? `${safeBodyHtml}<p style="margin-top:24px;font-size:12px"><a href="${escapeHtml(recipient.unsubscribeUrl)}">Unsubscribe from these emails</a></p>`
       : safeBodyHtml;
     const rendered = renderCustomBroadcastEmail({
-      headline: replaceTags(parsed.data.headline),
+      headline: replaceTags(data.headline),
       bodyHtml,
-      ctaText: parsed.data.ctaText,
-      ctaUrl: parsed.data.ctaUrl,
+      ctaText: data.ctaText,
+      ctaUrl: data.ctaUrl,
     });
     const result = await sendEmail({
       to: recipient.email,
-      subject: replaceTags(parsed.data.subject),
+      subject: replaceTags(data.subject),
       html: rendered.html,
       text: rendered.text,
     });

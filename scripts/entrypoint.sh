@@ -12,6 +12,14 @@
 # loud, harmless failure that Coolify's health check surfaces immediately.
 set -e
 
+# Started as root only so a root-owned volume at .next/cache can be handed to
+# the app user. Everything after this re-exec runs as nextjs.
+if [ "$(id -u)" = "0" ]; then
+  mkdir -p /app/.next/cache
+  chown -R nextjs:nodejs /app/.next/cache
+  exec su-exec nextjs "$0" "$@"
+fi
+
 if [ "${RUN_MIGRATIONS_ON_START:-true}" = "true" ]; then
   echo "[entrypoint] applying migrations..."
   node scripts/migrate-prod.mjs

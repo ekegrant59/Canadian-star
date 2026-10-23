@@ -102,10 +102,12 @@ RUN mkdir -p migrate-deps \
   && chown -R nextjs:nodejs /app/migrate-deps
 
 # ISR/revalidation writes here. Mount a persistent volume at this path in
-# Coolify so the cache survives restarts.
-RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
-
-USER nextjs
+# Coolify so the cache survives restarts. A mounted volume replaces this
+# directory and arrives owned by root, so the chown here alone is not enough:
+# the entrypoint starts as root, fixes ownership of the mount, then drops to
+# nextjs with su-exec before running migrations or the server.
+RUN apk add --no-cache su-exec \
+  && mkdir -p .next/cache && chown -R nextjs:nodejs .next
 
 EXPOSE 3000
 
