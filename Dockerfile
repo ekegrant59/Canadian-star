@@ -101,13 +101,13 @@ RUN mkdir -p migrate-deps \
   && rm ../app-package.json \
   && chown -R nextjs:nodejs /app/migrate-deps
 
-# ISR/revalidation writes here. Mount a persistent volume at this path in
-# Coolify so the cache survives restarts. A mounted volume replaces this
-# directory and arrives owned by root, so the chown here alone is not enough:
-# the entrypoint starts as root, fixes ownership of the mount, then drops to
-# nextjs with su-exec before running migrations or the server.
-RUN apk add --no-cache su-exec \
-  && mkdir -p .next/cache && chown -R nextjs:nodejs .next
+# ISR/revalidation writes here. In Coolify, mount a named VOLUME at this path
+# so the cache survives restarts. Never a host directory: Docker creates a new
+# named volume with this directory's nextjs ownership, while a host bind mount
+# keeps host ownership and exposes that host path to the app.
+RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
+
+USER nextjs
 
 EXPOSE 3000
 
