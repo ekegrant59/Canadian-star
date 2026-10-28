@@ -86,7 +86,7 @@ export type SignInInput = z.infer<typeof signInSchema>;
  * actually on screen when someone ticked the box.
  */
 export const SIGNUP_CONSENT_WORDING = {
-  age: 'I confirm that I am 18 years of age or older',
+  age: 'I confirm that I am 16 years of age or older',
   terms: 'I have read and agree to the Terms and Conditions and Privacy Policy',
 } as const;
 

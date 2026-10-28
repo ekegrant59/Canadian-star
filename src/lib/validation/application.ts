@@ -282,7 +282,7 @@ export type ApplicationSubmitOutput = z.output<typeof applicationSubmitSchema>;
 export const APPLICATION_CONSENT_WORDING = {
   availability:
     'I confirm that I am available for all required competition dates. I acknowledge that failure to attend any of the mandatory dates listed above may result in immediate disqualification from the competition.',
-  eligibility: 'I confirm I am at least 18 years of age and a legal resident.',
+  eligibility: 'I confirm I am at least 16 years of age and a legal resident.',
   rules: 'I have read and agree to the Official Competition Rules.',
   mediaRelease: 'I consent to the Media Release Agreement allowing use of my likeness.',
   accuracy:

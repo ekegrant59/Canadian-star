@@ -11,7 +11,7 @@ const eligibility = [
   {
     icon: UserCheck,
     title: 'Age Requirements',
-    copy: '18 years of age or older at the time of application submission.',
+    copy: '16 years of age or older at the time of application submission.',
   },
   {
     icon: Users,
